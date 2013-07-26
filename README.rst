@@ -60,44 +60,9 @@ Extra filtering to eliminate subreads with missed adapters
 
 If SMRTbell adapters are missed, sometimes it'll still be considered full-length by barcode_trimmer.py (especially
 when the 5' and 3' primers are identical or highly similar). To further eliminate these subreads, after running
-barcode_trimmer.py, you can run this extra script:
+*hmmer_wrapper.py*, run this on the remaining FL reads::
+    chimera_finder.py -d <output_dir> --cpus <cpus> -i <FL fasta filename>
 
-usage: filter_53seen.py TRIMMED_FASTA PRIMER_INFO OUTPUT_FILENAME
-
-You should use the output fasta and .primer_info.txt from barcode_trimmer.py. 
-
-Currently, this filtering is done by simply looking at the FL subread length distributions in the same ZMW
-and eliminate those that have too short or too long subread length (despite seeing both 5' and 3').
-
-
-The output from this script are all subreads that: (1) have 5' and 3' seen and (2) are likely not to contain a 
-missing adapter.
-
-
-===========================================================
-Aligning subreads to known transcripts and plotting results
-===========================================================
-The alignQC.py is a lot more demanding on prerequisites. Read here_ for a detailed tutorial.
-
-.. _here: https://github.com/Magdoll/cDNA_primer/wiki/Aligning-to-known-transcripts-for-QC
-
-
-usage: alignQC.py [-h] -d OUTPUT_DIRECTORY -m PRIMER_MATCH_FILE -p OUTPUT_PREFIX [--read_pickle READ_PICKLE] [--ref_size REF_SIZE] [--refStrandPickle REFSTRANDPICKLE] [--restrictByPM] job_directory
-
-Create some plots for transcript analyses.
-
-positional arguments:
-  job_directory
-
-optional arguments:
-  -h, --help            show this help message and exit
-  -d OUTPUT_DIRECTORY   OUTPUT_DIRECTORY
-  -m PRIMER_MATCH_FILE  PRIMER_MATCH_FILE
-  -p OUTPUT_PREFIX      OUTPUT_PREFIX
-  --read_pickle         READ_PICKLE
-  --ref_size            REF_SIZE
-  --refStrandPickle     REFSTRANDPICKLE
-  --restrictByPM        Using .primer_info.txt to restrict what subreads to look at
 
 
 
