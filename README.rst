@@ -52,6 +52,10 @@ Primer trimming options:
                         Output fasta filename
 
 
+==========================================================
+Summarize FL results
+==========================================================
+
 hmmer_wrapper.py will output a .primer_info.txt file which can be summarized using the script *summarize_primer_info.py*::
     summarize_primer_info.py <output .primer_info.txt>
 
