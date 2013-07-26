@@ -8,11 +8,11 @@ IMPORTANT: usage of the scripts is detailed in the [wiki](https://github.com/Mag
 See this [page](https://github.com/Magdoll/cDNA_primer/wiki/How-to-identify-full-length-transcripts-in-PacBio-data) on how to use the full-length identification scripts. 
 
 
-| usage: hmmer_wrapper.py
-|       [-h] [-p PRIMER_FILENAME] [-i INPUT_FILENAME] [-d DIRECTORY]
-|       [-k PRIMER_SEARCH_WINDOW] [--cpus CPUS] [--left-nosee-ok]
-|       [--right-nosee-ok] [--output-anyway] [--change-seqid]
-|       [--min-seqlen MIN_SEQLEN] [--min-score MIN_SCORE] -o OUTPUT_FILENAME
+> usage: hmmer_wrapper.py
+>       [-h] [-p PRIMER_FILENAME] [-i INPUT_FILENAME] [-d DIRECTORY]
+>       [-k PRIMER_SEARCH_WINDOW] [--cpus CPUS] [--left-nosee-ok]
+>       [--right-nosee-ok] [--output-anyway] [--change-seqid]
+>       [--min-seqlen MIN_SEQLEN] [--min-score MIN_SCORE] -o OUTPUT_FILENAME
 
  This script requires phmmer from HMMER 3.0.
  If the output directory already exists, will skip running phmmer and directory go to primer trimming.
