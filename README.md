@@ -3,7 +3,7 @@ These scripts are for identifying potential full-length (FL) subreads or CCS rea
 IMPORTANT: usage of the scripts is detailed in the [wiki](https://github.com/Magdoll/cDNA_primer/wiki) section. Please read it!!
 
 
-# Identifying full-length subreads/CCS reads using cDNA kit primers
+## Identifying full-length subreads/CCS reads using cDNA kit primers
 
 See this [page](https://github.com/Magdoll/cDNA_primer/wiki/How-to-identify-full-length-transcripts-in-PacBio-data) on how to use the full-length identification scripts. 
 
@@ -47,24 +47,26 @@ Primer trimming options:
                         Output fasta filename
 ```
 
-## Summarize FL results
+### Summarize FL results
 
 hmmer_wrapper.py will output a .primer_info.txt file which can be summarized using the script *summarize_primer_info.py*:
 ```shell
-    summarize_primer_info.py <output .primer_info.txt>
+summarize_primer_info.py <output .primer_info.txt>
 ```
 
-# Extra filtering to eliminate subreads with missed adapters
+## Extra filtering to eliminate subreads with missed adapters
 
 If SMRTbell adapters are missed, sometimes it'll still be considered full-length by barcode_trimmer.py (especially
 when the 5' and 3' primers are identical or highly similar). To further eliminate these subreads, after running
 *hmmer_wrapper.py*, run this on the remaining FL reads:
 
 ```shell
-    chimera_finder.py -d <output_dir> --cpus <cpus> -i <FL fasta filename>
+chimera_finder.py -d <output_dir> --cpus <cpus> -i <FL fasta filename>
 ```
 
 
 
+
+[![githalytics.com alpha](https://cruel-carlota.pagodabox.com/7a0be18cf32fa6aca5c388e1a18cdf6d "githalytics.com")](http://githalytics.com/PacificBiosciences/cDNA_primer)
 
 
