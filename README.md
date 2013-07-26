@@ -19,8 +19,10 @@ See this [page](https://github.com/Magdoll/cDNA_primer/wiki/How-to-identify-full
  If you want to re-run HMMER you must first delete the output directory manually.
  Refer to wiki: https://github.com/PacificBiosciences/cDNA_primer/wiki for more details.
 
+```shell
 optional arguments:
   -h, --help            show this help message and exit
+```
 
 HMMER options:
   -p PRIMER_FILENAME, --primer_filename PRIMER_FILENAME
