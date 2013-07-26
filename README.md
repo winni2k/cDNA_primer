@@ -50,17 +50,19 @@ Primer trimming options:
 ## Summarize FL results
 
 hmmer_wrapper.py will output a .primer_info.txt file which can be summarized using the script *summarize_primer_info.py*:
+```shell
     summarize_primer_info.py <output .primer_info.txt>
+```
 
-===========================================================                    
-Extra filtering to eliminate subreads with missed adapters
-===========================================================
+# Extra filtering to eliminate subreads with missed adapters
 
 If SMRTbell adapters are missed, sometimes it'll still be considered full-length by barcode_trimmer.py (especially
 when the 5' and 3' primers are identical or highly similar). To further eliminate these subreads, after running
-*hmmer_wrapper.py*, run this on the remaining FL reads::
-    chimera_finder.py -d <output_dir> --cpus <cpus> -i <FL fasta filename>
+*hmmer_wrapper.py*, run this on the remaining FL reads:
 
+```shell
+    chimera_finder.py -d <output_dir> --cpus <cpus> -i <FL fasta filename>
+```
 
 
 
