@@ -64,7 +64,7 @@ when the 5' and 3' primers are identical or highly similar). To further eliminat
 chimera_finder.py -d <output_dir> --cpus <cpus> -i <FL fasta filename>
 ```
 
-
+*chimera_finder.py* uses the same HMMER3, but instead look for cDNA primers in the *middle* of a sequence. It splits the input fasta into two output files according to whether cDNA primers are seen or not: *.is_chimera.fa* and *.non_chimera.fa*.
 
 
 [![githalytics.com alpha](https://cruel-carlota.pagodabox.com/7a0be18cf32fa6aca5c388e1a18cdf6d "githalytics.com")](http://githalytics.com/PacificBiosciences/cDNA_primer)
