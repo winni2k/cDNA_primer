@@ -100,3 +100,7 @@ optional arguments:
   --restrictByPM        Using .primer_info.txt to restrict what subreads to look at
 
 
+
+[![githalytics.com alpha](https://cruel-carlota.pagodabox.com/7a0be18cf32fa6aca5c388e1a18cdf6d "githalytics.com")](http://githalytics.com/PacificBiosciences/cDNA_primer)
+
+
