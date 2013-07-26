@@ -52,7 +52,8 @@ Primer trimming options:
                         Output fasta filename
 
 
-
+*hmmer_wrapper.py* will output a .primer_info.txt file which can be summarized using the script *summarize_primer_info.py*::
+    summarize_primer_info.py <output .primer_info.txt>
 
 ===========================================================                    
 Extra filtering to eliminate subreads with missed adapters
@@ -66,6 +67,5 @@ when the 5' and 3' primers are identical or highly similar). To further eliminat
 
 
 
-[![githalytics.com alpha](https://cruel-carlota.pagodabox.com/7a0be18cf32fa6aca5c388e1a18cdf6d "githalytics.com")](http://githalytics.com/PacificBiosciences/cDNA_primer)
 
 
