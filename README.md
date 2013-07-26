@@ -22,7 +22,6 @@ See this [page](https://github.com/Magdoll/cDNA_primer/wiki/How-to-identify-full
 ```shell
 optional arguments:
   -h, --help            show this help message and exit
-```
 
 HMMER options:
   -p PRIMER_FILENAME, --primer_filename PRIMER_FILENAME
@@ -46,13 +45,11 @@ Primer trimming options:
                         Minimum bit score for primer hit (default: 10)
   -o OUTPUT_FILENAME, --output_filename OUTPUT_FILENAME
                         Output fasta filename
+```
 
+## Summarize FL results
 
-==========================================================
-Summarize FL results
-==========================================================
-
-hmmer_wrapper.py will output a .primer_info.txt file which can be summarized using the script *summarize_primer_info.py*::
+hmmer_wrapper.py will output a .primer_info.txt file which can be summarized using the script *summarize_primer_info.py*:
     summarize_primer_info.py <output .primer_info.txt>
 
 ===========================================================                    
