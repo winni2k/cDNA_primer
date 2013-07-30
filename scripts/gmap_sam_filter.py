@@ -7,7 +7,7 @@ Interval = namedtuple('Interval', ['start', 'end'])
 class SAMRecord:
     cigar_rex = re.compile('(\d+)([MIDSHN])')
     SAMflag = namedtuple('SAMflag', ['is_paired', 'strand', 'PE_read_num'])
-    def __init__(self, record_line=None, ref_len_dict=None):
+    def __init__(self, record_line=None, ref_len_dict=None, ignore_XQ=False):
         """
         sLen & sCoverage --- subject length & alignment coverage, is None unless ref_len_dict is given
         qLen & qCoverage --- query length & alignment coverage, is None unless has fields XQ/XS/XE (from blasr's sam or pbalign.py)
@@ -21,26 +21,27 @@ class SAMRecord:
         self.num_ins = None
         self.num_del = None
         self.num_mat_or_sub = None
-        
+
         self.qCoverage = None
         self.sCoverage = None
-        
+
         self.sLen = None
         self.qLen = None
         # qStart, qEnd might get changed in parse_cigar
         self.qStart = 0
-        self.qEnd = None # length of SEQ   
-        
+        self.qEnd = None # length of SEQ
+
         self.cigar = None
-        self.flag = None       
-        
+        self.flag = None
+
         self.identity = None
         self.record_line = record_line
+        self.ignore_XQ = ignore_XQ
         if record_line is not None:
-            self.process(record_line, ref_len_dict)        
+            self.process(record_line, ref_len_dict, ignore_XQ)
 
     def __str__(self):
-        msg = \
+        msg =\
         """
         qID: {q}
         sID: {s}
@@ -49,24 +50,26 @@ class SAMRecord:
         qStart-qEnd: {qs}-{qe}
         segments: {seg}
         flag: {f}
-        """.format(q=self.qID, s=self.sID, seg=self.segments, c=self.cigar, f=self.flag, \
-                ss=self.sStart, se=self.sEnd, qs=self.qStart, qe=self.qEnd)
+        """.format(q=self.qID, s=self.sID, seg=self.segments, c=self.cigar, f=self.flag,\
+            ss=self.sStart, se=self.sEnd, qs=self.qStart, qe=self.qEnd)
         return msg
 
     def __eq__(self, other):
-        return self.qID == other.qID and self.sID == other.sID and \
-            self.sStart == other.sStart and self.sEnd == other.sEnd and \
-            self.segments == other.segments and self.qCoverage == other.qCoverage and \
-            self.sCoverage == other.sCoverage and self.qLen == other.qLen and \
-            self.sLen == other.sLen and self.qStart == other.qStart and \
-            self.cigar == other.cigar and self.flag == other.flag and self.identity == other.identity
-            
+        return self.qID == other.qID and self.sID == other.sID and\
+               self.sStart == other.sStart and self.sEnd == other.sEnd and\
+               self.segments == other.segments and self.qCoverage == other.qCoverage and\
+               self.sCoverage == other.sCoverage and self.qLen == other.qLen and\
+               self.sLen == other.sLen and self.qStart == other.qStart and\
+               self.cigar == other.cigar and self.flag == other.flag and self.identity == other.identity
 
 
-    def process(self, record_line, ref_len_dict=None):
+
+    def process(self, record_line, ref_len_dict=None, ignore_XQ=False):
         """
         If SAM is from pbalign.py output, then have flags:
-            XS: 1-based qStart, XE: 1-based qEnd, XQ: query length, NM: number of non-matches             
+            XS: 1-based qStart, XE: 1-based qEnd, XQ: query length, NM: number of non-matches
+
+        ignore_XQ should be False for BLASR/pbalign.py's SAM, True for GMAP's SAM
         """
         raw = record_line.split('\t')
         self.qID = raw[0]
@@ -79,16 +82,18 @@ class SAMRecord:
         self.sEnd = self.segments[-1].end
         self.flag = SAMRecord.parse_sam_flag(int(raw[1]))
         # In Yuan Li's BLASR-to-SAM, XQ:i:<subread length>
-        # see https://github.com/PacificBiosciences/blasr/blob/master/common/datastructures/alignmentset/SAMAlignment.h        
+        # see https://github.com/PacificBiosciences/blasr/blob/master/common/datastructures/alignmentset/SAMAlignment.h
         for x in raw[6:]:
-            if x.startswith('XQ:i:'): # XQ should come last, after XS and XE
-                self.qLen = int(x[5:])
-                self.qCoverage = (self.qEnd - self.qStart) * 1. / self.qLen
+            if x.startswith('XQ:i:') and not ignore_XQ: # XQ should come last, after XS and XE
+                _qLen = int(x[5:])
+                if _qLen > 0: # this is for GMAP's SAM, which has XQ:i:0
+                    self.qLen = _qLen
+                    self.qCoverage = (self.qEnd - self.qStart) * 1. / self.qLen
             elif x.startswith('XS:i:'): # must be PacBio's SAM, need to update qStart
                 qs = int(x[5:]) - 1 # XS is 1-based
                 assert self.qStart == 0
                 self.qStart = qs
-                self.qEnd += qs    
+                self.qEnd += qs
             elif x.startswith('XE:i:'): # must be PacBio's SAM and comes after XS:i:
                 qe = int(x[5:])     # XE is 1-based
                 assert self.qEnd == qe - 1 # qEnd should've been updated already, confirm this
@@ -102,6 +107,9 @@ class SAMRecord:
         if self.flag.strand == '-' and self.qLen is not None:
             self.qStart, self.qEnd = self.qLen - self.qEnd, self.qLen - self.qStart
 
+        if self.qLen is not None:
+            self.qCoverage = (self.qEnd - self.qStart) * 1. / self.qLen
+
     def parse_cigar(self, cigar, start):
         """
         M - match
@@ -112,7 +120,7 @@ class SAMRecord:
         H - hard clipped (not shown in SEQ)
 
         ex: 50M43N3D
-        
+
         NOTE: sets qStart & qEnd, which are often incorrect because of different ways to write CIGAR strings
               instead rely on XS/XE flags (from blasr or pbalign.py) to overwrite this later!!!
 
@@ -124,6 +132,7 @@ class SAMRecord:
         _strlen = 0
         first_thing = True
         q_aln_len = 0
+        _qLen = 0
         self.num_del = 0
         self.num_ins = 0
         self.num_mat_or_sub = 0
@@ -131,15 +140,19 @@ class SAMRecord:
             _strlen += len(num) + len(type)
             num = int(num)
             if type == 'H':
-                if first_thing: 
+                _qLen += num
+                if first_thing:
                     self.qStart += num
             elif type == 'S':
+                _qLen += num
                 if first_thing:
                     self.qStart += num
             elif type == 'I':
+                _qLen += num
                 q_aln_len += num
                 self.num_ins += num
             elif type == 'M':
+                _qLen += num
                 cur_end += num
                 q_aln_len += num
                 self.num_mat_or_sub += num
@@ -155,8 +168,9 @@ class SAMRecord:
         if cur_start != cur_end:
             segments.append(Interval(cur_start, cur_end))
         self.qEnd = self.qStart + q_aln_len
+        if _qLen > 0: self.qLen = _qLen
         return segments
-    
+
     @classmethod
     def parse_sam_flag(self, flag):
         """
@@ -170,48 +184,48 @@ class SAMRecord:
         128 -- second mate in pair
         256 -- not primary alignment
 
-        Return: SAMflag 
+        Return: SAMflag
         """
         PE_read_num = 0
         strand = '+'
         if flag > 1024: #PCR or optical duplicate, should never see this...
-            flag -= 1024  
+            flag -= 1024
         if flag > 512: #not passing QC, should never see this
             flag -= 512
         if flag >= 256: #secondary alignment, OK to see this if option given in BowTie
             flag -= 256
-        if flag >= 128: 
+        if flag >= 128:
             PE_read_num = 2
             flag -= 128
         elif flag >= 64:
             PE_read_num = 1
             flag -= 64
-        if flag >= 32: 
+        if flag >= 32:
             flag -= 32
         if flag >= 16:
             strand = '-'
             flag -= 16
-        if flag >= 8: 
+        if flag >= 8:
             flag -= 8
         if flag >= 4:
             flag -= 4
         if flag >= 2:
             flag -= 2
         assert flag == 0 or flag == 1
-        is_paired = flag == 1        
+        is_paired = flag == 1
         return SAMRecord.SAMflag(is_paired, strand, PE_read_num)
-
 
 
 class SAMReader:
     SAMheaders = ['@HD', '@SQ', '@RG', '@PG', '@CO']
-    def __init__(self, filename, has_header, ref_fasta_filename=None):
+    def __init__(self, filename, has_header, ref_fasta_filename=None, ignore_XQ=False):
         """
         If ref fasta is given, use it to get sLen & sCoverage
         """
         self.filename = filename
         self.ref_fasta_filename = ref_fasta_filename
         self.ref_len_dict = None
+        self.ignore_XQ = ignore_XQ
         self.f = open(filename)
         self.header = ''
         if has_header:
@@ -232,12 +246,12 @@ class SAMReader:
         line = self.f.readline().strip()
         if len(line) == 0:
             raise StopIteration
-        return SAMRecord(line, self.ref_len_dict)
+        return SAMRecord(line, self.ref_len_dict, self.ignore_XQ)
 
 
 
-def sam_filter(sam_filename, output_filename, min_coverage, min_identity):
-    reader = SAMReader(sam_filename, has_header=True)
+def sam_filter(sam_filename, output_filename, min_coverage, min_identity, ignore_XQ):
+    reader = SAMReader(sam_filename, has_header=True, ignore_XQ=ignore_XQ)
     f = open(output_filename, 'w')
     f.write(reader.header)
     for r in reader:
@@ -256,8 +270,11 @@ if __name__ == "__main__":
     parser.add_argument("-o", "--output-sam", dest="output", required=True, help="Output SAM filename")
     parser.add_argument("--min-coverage", dest="cov", default=.9, type=float, help="Minimum alignment coverage (def: 0.9)")
     parser.add_argument("--min-identity", dest="iden", default=.8, type=float, help="Minimum alignment identity (def: 0.8)")
-    
+    parser.add_argument("--gmap-sam", dest="ignore_XQ", default=False, action="store_true", help="Is GMAP's SAM output; must use this flag for GMAP's SAM for correct coverage")
+
     args = parser.parse_args()
+    #print args
+    #raw_input()
     
     if args.cov < 0 or args.cov > 1:
         print >> sys.stderr, "min-coverage must be between 0-1."
@@ -266,4 +283,4 @@ if __name__ == "__main__":
         print >> sys.stderr, "min-identity must be between 0-1."
         sys.exit(-1)   
              
-    sam_filter(args.input, args.output, args.cov, args.iden)
+    sam_filter(args.input, args.output, args.cov, args.iden, args.ignore_XQ)
