@@ -87,6 +87,8 @@ class SAMRecord:
             if x.startswith('XQ:i:') and not ignore_XQ: # XQ should come last, after XS and XE
                 _qLen = int(x[5:])
                 if _qLen > 0: # this is for GMAP's SAM, which has XQ:i:0
+                    if self.qLen is not None and self.qLen > _qLen:
+                        print >> sys.stderr, "WARNING: According to CIGAR string, query length of {2} is {0} but the XQ:i flag field shows query length is {1}. Are you sure this is a BLASR/pbalign.py compatible SAM? To ignore XQ flag, use --gmap-sam parameter.".format(self.qLen, _qLen, self.qID)
                     self.qLen = _qLen
                     self.qCoverage = (self.qEnd - self.qStart) * 1. / self.qLen
             elif x.startswith('XS:i:'): # must be PacBio's SAM, need to update qStart
