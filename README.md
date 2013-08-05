@@ -1,3 +1,5 @@
+Last Updated: 7/26/2013
+
 These scripts are for identifying potential full-length (FL) subreads or CCS reads using the 5' and 3' primer ligated to the transcripts during the cDNA library preparation step.
 
 IMPORTANT: usage of the scripts is detailed in the [wiki](https://github.com/Magdoll/cDNA_primer/wiki) section. Please read it!!
@@ -14,8 +16,8 @@ See this [page](https://github.com/Magdoll/cDNA_primer/wiki/How-to-identify-full
 >       [--right-nosee-ok] [--output-anyway] [--change-seqid]
 >       [--min-seqlen MIN_SEQLEN] [--min-score MIN_SCORE] -o OUTPUT_FILENAME
 
- This script requires phmmer from HMMER 3.0.
- If the output directory already exists, will skip running phmmer and directory go to primer trimming.
+ This script requires phmmer from [HMMER 3.0](http://hmmer.janelia.org/software).
+ If the output directory already exists, it will skip running phmmer and directly go to primer trimming.
  If you want to re-run HMMER you must first delete the output directory manually.
  Refer to wiki: https://github.com/PacificBiosciences/cDNA_primer/wiki for more details.
 
