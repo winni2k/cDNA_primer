@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import os, re, sys
+from Bio import SeqIO
 from collections import namedtuple
 
 Interval = namedtuple('Interval', ['start', 'end'])
@@ -7,7 +8,7 @@ Interval = namedtuple('Interval', ['start', 'end'])
 class SAMRecord:
     cigar_rex = re.compile('(\d+)([MIDSHN])')
     SAMflag = namedtuple('SAMflag', ['is_paired', 'strand', 'PE_read_num'])
-    def __init__(self, record_line=None, ref_len_dict=None, ignore_XQ=False):
+    def __init__(self, record_line=None, ref_len_dict=None, ignore_XQ=False, query_len_dict=None):
         """
         sLen & sCoverage --- subject length & alignment coverage, is None unless ref_len_dict is given
         qLen & qCoverage --- query length & alignment coverage, is None unless has fields XQ/XS/XE (from blasr's sam or pbalign.py)
@@ -38,7 +39,7 @@ class SAMRecord:
         self.record_line = record_line
         self.ignore_XQ = ignore_XQ
         if record_line is not None:
-            self.process(record_line, ref_len_dict, ignore_XQ)
+            self.process(record_line, ref_len_dict, ignore_XQ, query_len_dict)
 
     def __str__(self):
         msg =\
@@ -64,7 +65,7 @@ class SAMRecord:
 
 
 
-    def process(self, record_line, ref_len_dict=None, ignore_XQ=False):
+    def process(self, record_line, ref_len_dict=None, ignore_XQ=False, query_len_dict=None):
         """
         If SAM is from pbalign.py output, then have flags:
             XS: 1-based qStart, XE: 1-based qEnd, XQ: query length, NM: number of non-matches
@@ -111,6 +112,13 @@ class SAMRecord:
 
         if self.qLen is not None:
             self.qCoverage = (self.qEnd - self.qStart) * 1. / self.qLen
+           
+        if query_len_dict is not None: # over write qLen and qCoverage, should be done LAST
+        	try:
+        	    self.qLen = query_len_dict[self.qID]
+        	except KeyError: # HACK for blasr's extended qID
+        		self.qLen = query_len_dict[self.qID[:self.qID.rfind('/')]]
+        	self.qCoverage = (self.qEnd - self.qStart) * 1. / self.qLen
 
     def parse_cigar(self, cigar, start):
         """
@@ -220,18 +228,20 @@ class SAMRecord:
 
 class SAMReader:
     SAMheaders = ['@HD', '@SQ', '@RG', '@PG', '@CO']
-    def __init__(self, filename, has_header, ref_fasta_filename=None, ignore_XQ=False):
+    def __init__(self, filename, has_header, ref_fasta_filename=None, ignore_XQ=False, query_fasta_filename=None):
         """
         If ref fasta is given, use it to get sLen & sCoverage
         """
         self.filename = filename
-        self.ref_fasta_filename = ref_fasta_filename
+        self.ref_fasta_filename = ref_fasta_filename        
         self.ref_len_dict = None
+        self.query_fasta_filename = query_fasta_filename
+        self.query_len_dict = None
         self.ignore_XQ = ignore_XQ
         self.f = open(filename)
         self.header = ''
         if has_header:
-            while True: 
+            while True:
                 cur = self.f.tell()
                 line = self.f.readline()
                 if line[:3] not in SAMReader.SAMheaders:
@@ -240,6 +250,8 @@ class SAMReader:
             self.f.seek(cur)
         if self.ref_fasta_filename is not None:
             self.ref_len_dict = dict((r.id, len(r.seq)) for r in SeqIO.parse(open(self.ref_fasta_filename), 'fasta'))
+        if self.query_fasta_filename is not None:
+        	self.query_len_dict = dict((r.id, len(r.seq)) for r in SeqIO.parse(open(self.query_fasta_filename), 'fasta'))
 
     def __iter__(self):
         return self
@@ -248,12 +260,12 @@ class SAMReader:
         line = self.f.readline().strip()
         if len(line) == 0:
             raise StopIteration
-        return SAMRecord(line, self.ref_len_dict, self.ignore_XQ)
+        return SAMRecord(line, self.ref_len_dict, self.ignore_XQ, self.query_len_dict)
 
 
 
-def sam_filter(sam_filename, output_filename, min_coverage, min_identity, ignore_XQ):
-    reader = SAMReader(sam_filename, has_header=True, ignore_XQ=ignore_XQ)
+def sam_filter(sam_filename, output_filename, min_coverage, min_identity, ignore_XQ, query_fasta_filename):
+    reader = SAMReader(sam_filename, has_header=True, ignore_XQ=ignore_XQ, query_fasta_filename=query_fasta_filename)
     f = open(output_filename, 'w')
     f.write(reader.header)
     for r in reader:
@@ -271,6 +283,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser("Filtering SAM output")
     parser.add_argument("-i", "--input-sam", dest="input", required=True, help="Input SAM filename")
     parser.add_argument("-o", "--output-sam", dest="output", required=True, help="Output SAM filename")
+    parser.add_argument("--query-fasta", dest="query_fasta_filename", default=None, help="Query fasta filename (used for getting query length accurately)")
     parser.add_argument("--min-coverage", dest="cov", default=.9, type=float, help="Minimum alignment coverage (def: 0.9)")
     parser.add_argument("--min-identity", dest="iden", default=.8, type=float, help="Minimum alignment identity (def: 0.8)")
     parser.add_argument("--gmap-sam", dest="ignore_XQ", default=False, action="store_true", help="Is GMAP's SAM output; must use this flag for GMAP's SAM for correct coverage")
@@ -286,4 +299,4 @@ if __name__ == "__main__":
         print >> sys.stderr, "min-identity must be between 0-1."
         sys.exit(-1)   
              
-    sam_filter(args.input, args.output, args.cov, args.iden, args.ignore_XQ)
+    sam_filter(args.input, args.output, args.cov, args.iden, args.ignore_XQ, args.query_fasta_filename)
