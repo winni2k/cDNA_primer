@@ -4,6 +4,8 @@ These scripts are for identifying potential full-length (FL) subreads or CCS rea
 
 IMPORTANT: usage of the scripts is detailed in the [wiki](https://github.com/Magdoll/cDNA_primer/wiki) section. Please read it!!
 
+Read scripts/INSTALL for how to compile code.
+
 
 ## Identifying full-length subreads/CCS reads using cDNA kit primers
 
