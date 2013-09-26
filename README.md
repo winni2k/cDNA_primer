@@ -1,4 +1,4 @@
-Last Updated: 7/26/2013
+Last Updated: 9/26/2013
 
 These scripts are for identifying potential full-length (FL) subreads or CCS reads using the 5' and 3' primer ligated to the transcripts during the cDNA library preparation step.
 
