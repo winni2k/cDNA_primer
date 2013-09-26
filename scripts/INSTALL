@@ -1,0 +1,14 @@
+NOTE: 
+
+It is always recommended that you install these packages under a virtual environment.
+To see how to setup, see:
+https://github.com/PacificBiosciences/cDNA_primer/wiki
+
+
+To install, type:
+
+python setup.py build
+python setup.py install
+
+
+
