@@ -64,16 +64,19 @@ class BranchSimple:
         for r in iter:
             if r.sID != '*': break
         records = [r]
+        max_end = r.sEnd
 
         for r in iter:
             if r.sID == records[0].sID and r.sStart < records[-1].sStart:
                 print >> sys.stderr, "SAM file is NOT sorted. ABORT!"
                 sys.exit(-1)
-            if r.sID != records[0].sID or r.sStart > records[-1].sEnd:
+            if r.sID != records[0].sID or r.sStart > max_end:
                 yield sep_by_strand(records)
                 records = [r]
+                max_end = r.sEnd
             else:
                 records.append(r)
+                max_end = max(max_end, r.sEnd)
         yield sep_by_strand(records)
 
 
@@ -171,7 +174,7 @@ class BranchSimple:
                     chr=self.chrom, s=seg.start+1, e=seg.end, i=self.cuff_index, j=bad_index, strand=self.strand, cov=1))
                 bad_index -= 1
             else:
-                cluster[frozenset(x.value for x in self.match_record(r))] += 1
+                cluster[frozenset(x.value for x in stuff)] += 1
 
         self.isoform_index = 1
         # make the exon value --> interval dictionary
@@ -191,7 +194,9 @@ class BranchSimple:
                 f_out = f_good
                 index = self.isoform_index
                 self.isoform_index += 1
-            segments = [node_d[x] for x in node_set]
+            node_set_list = list(node_set)
+            node_set_list.sort()
+            segments = [node_d[x] for x in node_set_list]
             f_out.write("{chr}\tPacBio\ttranscript\t{s}\t{e}\t.\t{strand}\t.\tgene_id \"PB.{i}\"; transcript_id \"PB.{i}.{j}\"; cov \"{cov}\";\n".format(\
                 chr=self.chrom, s=segments[0].start+1, e=segments[-1].end, i=self.cuff_index, j=index, strand=self.strand, cov=cluster[node_set]))
 
