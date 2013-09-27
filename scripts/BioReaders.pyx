@@ -433,9 +433,12 @@ class BLASRSAMRecord(SAMRecord):
             
 class GMAPSAMReader(SAMReader):
     def next(self):
-        line = self.f.readline().strip()
-        if len(line) == 0:
-            raise StopIteration
+        while True:
+            line = self.f.readline().strip()
+            if len(line) == 0:
+                raise StopIteration
+            if not line.startswith('@'): # header can occur at file end if the SAM was sorted
+                break
         return GMAPSAMRecord(line, self.ref_len_dict, self.query_len_dict)
     
 class GMAPSAMRecord(SAMRecord):
