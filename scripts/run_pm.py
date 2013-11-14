@@ -16,6 +16,10 @@ elif species == 'rn5':
     transcript_ref_dir = '/mnt/secondary/Share/Smrtanalysis-alpha/opt/smrtanalysis/common/references/rat_UCSC'
     transcript_ref_fasta = '/mnt/secondary/Share/Smrtanalysis-alpha/opt/smrtanalysis/common/references/rat_UCSC/sequence/rat_UCSC.fasta'
     gmap_db_name = 'rn5'
+elif species == 'mm10':
+    transcript_ref_dir = '/mnt/secondary/Share/Smrtanalysis-alpha/opt/smrtanalysis/common/references/mouse_UCSC'
+    transcript_ref_fasta = '/mnt/secondary/Share/Smrtanalysis-alpha/opt/smrtanalysis/common/references/mouse_UCSC/sequence/mouse_UCSC.fasta'
+    gmap_db_name = 'mm10'
 else:
     print >> sys.stderr, "species not specified or unknown! quit!"
     sys.exit(-1)

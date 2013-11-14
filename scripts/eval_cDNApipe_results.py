@@ -87,7 +87,8 @@ def summarize_blasr(roi_prefix='reads_of_insert.53Aseen_trimmed_changeid.fa.non_
     2. Number of well-aligned (90% qCov, sCov) ZMWs / refs
     3. Abundance distribution of well-aligned refs
     """
-    hit_roi = eval_refmap_by_blasr.parse_blasr(roi_prefix+'.blasr.sam', ref_fasta_filename)
+    ref_len_dict = dict((r.id,len(r.seq)) for r in SeqIO.parse(open(ref_fasta_filename),'fasta'))
+    hit_roi = eval_refmap_by_blasr.parse_blasr(roi_prefix+'.blasr.sam', ref_len_dict)
 
     tally0 = defaultdict(lambda: 0)
     tally90 = defaultdict(lambda: 0)
@@ -113,16 +114,16 @@ def summarize_blasr(roi_prefix='reads_of_insert.53Aseen_trimmed_changeid.fa.non_
     # draw plots
     hit = hit_roi
 
-    eval_refmap_by_blasr.draw_2dhist(hit, png_name_prefix+'roi.sLen_vs_qLen', feat_func=lambda x: (x.sLen, x.qLen), filter_func=lambda x: True, xlab='Reference Length', ylab='Query length')
-    eval_refmap_by_blasr.draw_2dhist(hit, png_name_prefix+'roi.sLen_vs_qLen_well', feat_func=lambda x: (x.sLen, x.qLen), filter_func=lambda x: x.qCoverage>=.9 and x.sCoverage>=.9, xlab='Reference Length', ylab='Query length')
-    eval_refmap_by_blasr.draw_2dhist(hit, png_name_prefix+'roi.sCov_vs_qCov', feat_func=lambda x: (x.sCoverage, x.qCoverage), filter_func=lambda x: True, xlab='Reference Coverage', ylab='Query Coverage')
-    eval_refmap_by_blasr.draw_2dhist(hit, png_name_prefix+'roi.sLen_vs_sCov', feat_func=lambda x: (x.sLen, x.sCoverage), filter_func=lambda x: True, xlab='Reference Length', ylab='Reference Coverage')
+    eval_refmap_by_blasr.draw_2dhist(hit, png_name_prefix+'.roi.sLen_vs_qLen', feat_func=lambda x: (x.sLen, x.qLen), filter_func=lambda x: True, xlab='Reference Length', ylab='Query length')
+    eval_refmap_by_blasr.draw_2dhist(hit, png_name_prefix+'.roi.sLen_vs_qLen_well', feat_func=lambda x: (x.sLen, x.qLen), filter_func=lambda x: x.qCoverage>=.9 and x.sCoverage>=.9, xlab='Reference Length', ylab='Query length')
+    eval_refmap_by_blasr.draw_2dhist(hit, png_name_prefix+'.roi.sCov_vs_qCov', feat_func=lambda x: (x.sCoverage, x.qCoverage), filter_func=lambda x: True, xlab='Reference Coverage', ylab='Query Coverage')
+    eval_refmap_by_blasr.draw_2dhist(hit, png_name_prefix+'.roi.sLen_vs_sCov', feat_func=lambda x: (x.sLen, x.sCoverage), filter_func=lambda x: True, xlab='Reference Length', ylab='Reference Coverage')
 
     if ref_size is None:
-        eval_refmap_by_blasr.draw_coverage(hit, png_name_prefix+'roi.ref_coverage', filter_func=lambda x: x.qCoverage>=.9, title="5'-3' reference coverage (qCov>=90%)")
+        eval_refmap_by_blasr.draw_coverage(hit, png_name_prefix+'.roi.ref_coverage', filter_func=lambda x: x.qCoverage>=.9, title="5'-3' reference coverage (qCov>=90%)")
     else:
         a, b = ref_size
-        eval_refmap_by_blasr.draw_coverage(hit, png_name_prefix+'roi.ref_coverage', filter_func=lambda x: x.qCoverage>=.9 and a<=x.sLen<=b, title="5'-3' reference coverage (qCov>=90%), ref length {0}-{1} bp".format(a,b))
+        eval_refmap_by_blasr.draw_coverage(hit, png_name_prefix+'.roi.ref_coverage', filter_func=lambda x: x.qCoverage>=.9 and a<=x.sLen<=b, title="5'-3' reference coverage (qCov>=90%), ref length {0}-{1} bp".format(a,b))
 
 
 if __name__ == "__main__":
