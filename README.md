@@ -1,76 +1,69 @@
-Last Updated: 9/26/2013
+Last Updated: 01/31/2014
 
-These scripts are for identifying potential full-length (FL) subreads or CCS reads using the 5' and 3' primer ligated to the transcripts during the cDNA library preparation step.
+## About This Repository
 
-IMPORTANT: usage of the scripts is detailed in the [wiki](https://github.com/Magdoll/cDNA_primer/wiki) section. Please read it!!
-
-Read scripts/INSTALL for how to compile code.
+The scripts in this repository is developed for the purpose of analyzing transcriptome data generated using the PacBio [Iso-Seq(TM) protocol](http://www.smrtcommunity.com/Share/Protocol?id=a1q70000000HqSvAAK&strRecordTypeName=Protocol). 
 
 
-## Identifying full-length subreads/CCS reads using cDNA kit primers
-
-See this [page](https://github.com/Magdoll/cDNA_primer/wiki/How-to-identify-full-length-transcripts-in-PacBio-data) on how to use the full-length identification scripts. 
+This code is not part of the official PacBio software package and is developed solely by Elizabeth Tseng. Plans to incorporate this code into the official software pipeline is underway and is expected to be available in 2.2 release.
 
 
-> usage: hmmer_wrapper.py
->       [-h] [-p PRIMER_FILENAME] [-i INPUT_FILENAME] [-d DIRECTORY]
->       [-k PRIMER_SEARCH_WINDOW] [--cpus CPUS] [--left-nosee-ok]
->       [--right-nosee-ok] [--output-anyway] [--change-seqid]
->       [--min-seqlen MIN_SEQLEN] [--min-score MIN_SCORE] -o OUTPUT_FILENAME
+The code is divided into two sections:
 
- This script requires phmmer from [HMMER 3.0](http://hmmer.janelia.org/software).
- If the output directory already exists, it will skip running phmmer and directly go to primer trimming.
- If you want to re-run HMMER you must first delete the output directory manually.
- Refer to wiki: https://github.com/PacificBiosciences/cDNA_primer/wiki for more details.
+*Quality Control* --- scripts for (a) identifying full-length reads and (b) identifying artificial chimeric reads. The scripts are in the [scripts/](https://github.com/PacificBiosciences/cDNA_primer/tree/master/scripts) directory and tutorial #1-#5 from the [wiki](https://github.com/PacificBiosciences/cDNA_primer/wiki) covers its usage. Read scripts/INSTALL for how to compile code.
 
-```shell
-optional arguments:
-  -h, --help            show this help message and exit
+*ICE* --- scripts for (a) isoform-level clustering for consensus calling; (b) recruitment of non-FL reads and calling [Quiver](https://github.com/PacificBiosciences/GenomicConsensus/blob/master/doc/HowToQuiver.rst) for final consensus polishing. ICE is released in a [separate tarball](https://github.com/PacificBiosciences/cDNA_primer/releases) and ICE tutorial #1-#2 from the [wiki](https://github.com/PacificBiosciences/cDNA_primer/wiki) covers its usage. The QC scripts are a pre-requisite for running ICE.
 
-HMMER options:
-  -p PRIMER_FILENAME, --primer_filename PRIMER_FILENAME
-                        Primer fasta file
-  -i INPUT_FILENAME, --input_filename INPUT_FILENAME
-                        Input fasta file (usually filtered_subreads.fasta or filtered_CCS_subreads.fasta)
-  -d DIRECTORY, --directory DIRECTORY
-                        Directory to store HMMER output (default: output/)
-  -k PRIMER_SEARCH_WINDOW, --primer_search_window PRIMER_SEARCH_WINDOW
-                        Search in the first/last k-bp for primers. Must be longer than the longest primer. (default: 100)
-  --cpus CPUS           Number of CPUs to run HMMER (default: 8)
 
-Primer trimming options:
-  --left-nosee-ok       OK if 5' end not detected (default: off)
-  --right-nosee-ok      OK if 3' end not detected (default: off)
-  --output-anyway       Still output seqs w/ no primer (default: off)
-  --change-seqid        Change seq id to reflect trimming (default: off)
-  --min-seqlen MIN_SEQLEN
-                        Minimum seqlength to output (default: 50)
-  --min-score MIN_SCORE
-                        Minimum bit score for primer hit (default: 10)
-  -o OUTPUT_FILENAME, --output_filename OUTPUT_FILENAME
-                        Output fasta filename
+## About Iso-Seq(TM)
+
+Iso-Seq (Isoform Sequencing) is the PacBio trademark name referring to its developed applications for transcriptome sequencing. Please refer to the resources below as well as the wiki for more information:
+
+* [Iso-Seq Webinar](https://s3.amazonaws.com/files.pacb.com/Customer+Webinars/MCF-7+Transcriptome+Iso-Seq+Webinar+01+22+14.wmv) (recorded 1/22/2014)
+* [Iso-Seq Webinar Slides](https://s3.amazonaws.com/files.pacb.com/pdf/Iso-Seq+Bioinformatics+Analysis+of+the+Human+MCF-7+Transcriptome.pdf)
+* [Iso-Seq Webinar Q&A](https://s3.amazonaws.com/files.pacb.com/Customer+Webinars/Iso-Seq+Webinar+Q%26A.pdf)
+
+
+## License
+
+Standard PacBio Open Source License that is associated with this package:
+
 ```
 
-### Summarize FL results
-
-hmmer_wrapper.py will output a .primer_info.txt file which can be summarized using the script *summarize_primer_info.py*:
-```shell
-summarize_primer_info.py <output .primer_info.txt>
+#################################################################################$$
+# Copyright (c) 2011-2014, Pacific Biosciences of California, Inc.
+#
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted (subject to the limitations in the
+# disclaimer below) provided that the following conditions are met:
+#
+#  * Redistributions of source code must retain the above copyright
+#  notice, this list of conditions and the following disclaimer.
+#
+#  * Redistributions in binary form must reproduce the above
+#  copyright notice, this list of conditions and the following
+#  disclaimer in the documentation and/or other materials provided
+#  with the distribution.
+#
+#  * Neither the name of Pacific Biosciences nor the names of its
+#  contributors may be used to endorse or promote products derived
+#  from this software without specific prior written permission.
+#
+# NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+# GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY PACIFIC
+# BIOSCIENCES AND ITS CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+# WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+# OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL PACIFIC BIOSCIENCES OR ITS
+# CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+# LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
+# USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+# ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+# OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+# SUCH DAMAGE.
+#################################################################################$$
 ```
-
-## Extra filtering to eliminate subreads with missed adapters
-
-If SMRTbell adapters are missed, sometimes it'll still be considered full-length by barcode_trimmer.py (especially
-when the 5' and 3' primers are identical or highly similar). To further eliminate these subreads, after running
-*hmmer_wrapper.py*, run this on the remaining FL reads:
-
-```shell
-chimera_finder.py -d <output_dir> --cpus <cpus> -i <FL fasta filename>
-```
-
-*chimera_finder.py* uses the same HMMER3, but instead look for cDNA primers in the *middle* of a sequence. It splits the input fasta into two output files according to whether cDNA primers are seen or not: *.is_chimera.fa* and *.non_chimera.fa*.
-
-
-[![githalytics.com alpha](https://cruel-carlota.pagodabox.com/7a0be18cf32fa6aca5c388e1a18cdf6d "githalytics.com")](http://githalytics.com/PacificBiosciences/cDNA_primer)
-
-
