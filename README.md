@@ -15,7 +15,7 @@ The code is divided into two sections:
 *ICE* --- scripts for (a) isoform-level clustering for consensus calling; (b) recruitment of non-FL reads and calling [Quiver](https://github.com/PacificBiosciences/GenomicConsensus/blob/master/doc/HowToQuiver.rst) for final consensus polishing. ICE is released in a [separate tarball](https://github.com/PacificBiosciences/cDNA_primer/releases) and ICE tutorial #1-#2 from the [wiki](https://github.com/PacificBiosciences/cDNA_primer/wiki) covers its usage. The QC scripts are a pre-requisite for running ICE.
 
 
-## About the Iso-Seq(TM Application
+## About the Iso-Seq(TM) Application
 
 Iso-Seq (Isoform Sequencing) Applicatino is the PacBio trademark name referring to its developed applications for transcriptome sequencing. Please refer to the resources below as well as the wiki for more information:
 
