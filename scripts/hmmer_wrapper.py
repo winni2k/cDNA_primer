@@ -37,8 +37,9 @@
 # SUCH DAMAGE.
 #################################################################################$$
 
+
 __author__ = 'etseng@pacificbiosciences.com'
-import os, sys, subprocess, multiprocessing
+import os, sys, shutil, subprocess, multiprocessing
 from Bio import SeqIO
 from collections import defaultdict, namedtuple
 
@@ -211,13 +212,9 @@ def trim_barcode(primer_indices, fasta_filename, output_filename, d_fw, d_rc, k,
         ind, strand, fw, rc = pick_best_primer_combo(d_fw[r.id], d_rc[r.id], primer_indices, min_score)
         if fw is None and rc is None: # no match to either fw/rc primer on any end!
             # write the report
-            if output_anyway:
-                if r.id.count('/') == 1: # probably a CCS
-                    r.id = "{0}/0_{1}_CCS".format(r.id, len(r.seq))
-                elif r.id.endswith('/ccs'): # another CCS possible format
-                    r.id = "{0}/0_{1}_CCS".format(r.id[:-4], len(r.seq))
-                fout.write(">{0}\n{1}\n".format(r.id, r.seq))
             freport.write("{id}\tNA\t0\t0\t0\tNA\tNA\tNA\tNA\n".format(id=r.id))
+            if output_anyway:
+                fout.write(">{0}\n{1}\n".format(r.id, r.seq))
         else:
             seq = str(r.seq) if strand == '+' else str(r.seq.reverse_complement())
             p5_start, p5_end, p3_start, p3_end = None, None, None, None
@@ -268,7 +265,7 @@ def trim_barcode(primer_indices, fasta_filename, output_filename, d_fw, d_rc, k,
             else:
                 newid = "{0}/{1}/{2}_{3}".format(movie,hn,s1,e1) if change_seqid else r.id
             # only write if passes criteria or output_anyway is True
-            if ((not see_left or p5_end is not None) and (not see_right or p3_start is not None) and (not must_see_polyA or polyA_i > 0) and len(seq) >= min_seqlen) or (output_anyway and len(seq)>=min_seqlen):
+            if ((not see_left or p5_end is not None) and (not see_right or p3_start is not None) and (not must_see_polyA or polyA_i > 0) and len(seq) >= min_seqlen) or output_anyway:
                 fout.write(">{0}\n{1}\n".format(newid, seq))
             # but write to report regardless!
             freport.write("{id}\t{strand}\t{seen5}\t{seenA}\t{seen3}\t{e5}\t{eA}\t{e3}\t{pm}\n".format(\
