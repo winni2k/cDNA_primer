@@ -1,11 +1,13 @@
-Last Updated: 01/31/2014
+[DevNet](https://github.com/PacificBiosciences/cDNA_primer/wiki) | <a href="mailto:devnet@pacificbiosciences.com">Contact Us</a> | [Terms of Use](http://pacbiodevnet.com/Terms_of_Use.html) | [Trademarks](http://pacb.com/terms-of-use/index.html#trademarks)
+
+Last Updated: 02/27/2014
 
 ## About This Repository
 
-The scripts in this repository is developed for the purpose of analyzing transcriptome data generated using the PacBio [Iso-Seq(TM) protocol](http://www.smrtcommunity.com/Share/Protocol?id=a1q70000000HqSvAAK&strRecordTypeName=Protocol). 
+The scripts in this repository is developed for the purpose of analyzing transcriptome data generated using the PacBio(R) [Iso-Seq(TM) protocol](http://www.smrtcommunity.com/Share/Protocol?id=a1q70000000HqSvAAK&strRecordTypeName=Protocol). 
 
 
-This code is not part of the official PacBio software package and is developed solely by Elizabeth Tseng. Plans to incorporate this code into the official software pipeline is underway and is expected to be available in 2.2 release.
+This code is not part of the official PacBio software package and is developed solely by Elizabeth Tseng. Plans to incorporate this code into the official software pipeline are underway and the protocol will be available in the 2.2 release.
 
 
 The code is divided into two sections:
@@ -17,7 +19,7 @@ The code is divided into two sections:
 
 ## About Iso-Seq(TM)
 
-Iso-Seq (Isoform Sequencing) is the PacBio trademark name referring to its developed applications for transcriptome sequencing. Please refer to the resources below as well as the wiki for more information:
+The Iso-Seq (Isoform Sequencing) protocol refers to PacBio’s proprietary methods and applications for transcriptome sequencing. Please refer to the resources below, as well as the wiki for more information:
 
 * [Iso-Seq Webinar](https://s3.amazonaws.com/files.pacb.com/Customer+Webinars/MCF-7+Transcriptome+Iso-Seq+Webinar+01+22+14.wmv) (recorded 1/22/2014)
 * [Iso-Seq Webinar Slides](https://s3.amazonaws.com/files.pacb.com/pdf/Iso-Seq+Bioinformatics+Analysis+of+the+Human+MCF-7+Transcriptome.pdf)
