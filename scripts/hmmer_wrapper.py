@@ -1,45 +1,6 @@
 #!/usr/bin/env python
-
-#################################################################################$$
-# Copyright (c) 2011-2014, Pacific Biosciences of California, Inc.
-#
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted (subject to the limitations in the
-# disclaimer below) provided that the following conditions are met:
-#
-#  * Redistributions of source code must retain the above copyright
-#  notice, this list of conditions and the following disclaimer.
-#
-#  * Redistributions in binary form must reproduce the above
-#  copyright notice, this list of conditions and the following
-#  disclaimer in the documentation and/or other materials provided
-#  with the distribution.
-#
-#  * Neither the name of Pacific Biosciences nor the names of its
-#  contributors may be used to endorse or promote products derived
-#  from this software without specific prior written permission.
-#
-# NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
-# GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY PACIFIC
-# BIOSCIENCES AND ITS CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
-# WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
-# OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-# DISCLAIMED. IN NO EVENT SHALL PACIFIC BIOSCIENCES OR ITS
-# CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-# LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
-# USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-# ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
-# OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
-# SUCH DAMAGE.
-#################################################################################$$
-
-
 __author__ = 'etseng@pacificbiosciences.com'
-import os, sys, shutil, subprocess, multiprocessing
+import os, sys, subprocess, multiprocessing
 from Bio import SeqIO
 from collections import defaultdict, namedtuple
 
@@ -212,9 +173,13 @@ def trim_barcode(primer_indices, fasta_filename, output_filename, d_fw, d_rc, k,
         ind, strand, fw, rc = pick_best_primer_combo(d_fw[r.id], d_rc[r.id], primer_indices, min_score)
         if fw is None and rc is None: # no match to either fw/rc primer on any end!
             # write the report
-            freport.write("{id}\tNA\t0\t0\t0\tNA\tNA\tNA\tNA\n".format(id=r.id))
             if output_anyway:
+                if r.id.count('/') == 1: # probably a CCS
+                    r.id = "{0}/0_{1}_CCS".format(r.id, len(r.seq))
+                elif r.id.endswith('/ccs'): # another CCS possible format
+                    r.id = "{0}/0_{1}_CCS".format(r.id[:-4], len(r.seq))
                 fout.write(">{0}\n{1}\n".format(r.id, r.seq))
+            freport.write("{id}\tNA\t0\t0\t0\tNA\tNA\tNA\tNA\n".format(id=r.id))
         else:
             seq = str(r.seq) if strand == '+' else str(r.seq.reverse_complement())
             p5_start, p5_end, p3_start, p3_end = None, None, None, None
@@ -265,7 +230,7 @@ def trim_barcode(primer_indices, fasta_filename, output_filename, d_fw, d_rc, k,
             else:
                 newid = "{0}/{1}/{2}_{3}".format(movie,hn,s1,e1) if change_seqid else r.id
             # only write if passes criteria or output_anyway is True
-            if ((not see_left or p5_end is not None) and (not see_right or p3_start is not None) and (not must_see_polyA or polyA_i > 0) and len(seq) >= min_seqlen) or output_anyway:
+            if ((not see_left or p5_end is not None) and (not see_right or p3_start is not None) and (not must_see_polyA or polyA_i > 0) and len(seq) >= min_seqlen) or (output_anyway and len(seq)>=min_seqlen):
                 fout.write(">{0}\n{1}\n".format(newid, seq))
             # but write to report regardless!
             freport.write("{id}\t{strand}\t{seen5}\t{seenA}\t{seen3}\t{e5}\t{eA}\t{e3}\t{pm}\n".format(\
