@@ -4,7 +4,7 @@ from distutils.extension import Extension
 
 ext_modules = [Extension("BioReaders", ["BioReaders.c"]), \
         Extension("c_branch", ["c_branch.c"]), \
-        Extension("intersection_unique", ["intersection_unique.c"])]
+        Extension("modified_bx_intervals.intersection_unique", ["modified_bx_intervals/intersection_unique.c"])]
 
 setup(
 		name = 'c_cDNA_primer',
