@@ -65,6 +65,7 @@ def pick_longest_rep(fasta_filename, gff_filename, group_filename, output_filena
             if len(fastad[x].sequence) >= max_len:
                 best_id = x
                 best_seq = fastad[x].sequence
+                max_len = len(fastad[x].sequence)
         fout.writeRecord("{0}|{1}|{2}".format(pb_id, coords[pb_id], best_id), best_seq)
     fout.close()
     
