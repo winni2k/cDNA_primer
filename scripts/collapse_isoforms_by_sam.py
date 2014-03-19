@@ -99,7 +99,7 @@ def main(args):
     print >> sys.stderr, f_gff.name
     print >> sys.stderr, f_txt.name
     print >> sys.stderr, args.prefix+".collapsed.longest_rep.fa"
-
+    print >> sys.stderr, args
 
 
 if __name__ == "__main__":
@@ -109,8 +109,8 @@ if __name__ == "__main__":
     parser.add_argument("-f", "--fasta", required=True, help="Fasta filename")
     parser.add_argument("-s", "--sam", required=True, help="Sorted GMAP SAM filename")
     parser.add_argument("-o", "--prefix", required=True, help="Output filename prefix")
-    parser.add_argument("-c", "--min-coverage", dest="min_aln_coverage", default=.99, help="Minimum alignment coverage (default: 0.99)")
-    parser.add_argument("-i", "--min-identity", dest="min_aln_identity", default=.85, help="Minimum alignment identity (default: 0.85)")
+    parser.add_argument("-c", "--min-coverage", dest="min_aln_coverage", type=float, default=.99, help="Minimum alignment coverage (default: 0.99)")
+    parser.add_argument("-i", "--min-identity", dest="min_aln_identity", type=float, default=.85, help="Minimum alignment identity (default: 0.85)")
     parser.add_argument("--dun-merge-5-shorter", action="store_false", dest="allow_extra_5exon", default=True, help="Don't collapse shorter 5' transcripts (default: turned off)")
     
     args = parser.parse_args()
