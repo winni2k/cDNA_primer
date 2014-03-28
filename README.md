@@ -1,6 +1,23 @@
 [DevNet](https://github.com/PacificBiosciences/cDNA_primer/wiki) | <a href="mailto:devnet@pacificbiosciences.com">Contact Us</a> | [Terms of Use](http://pacbiodevnet.com/Terms_of_Use.html) | [Trademarks](http://pacb.com/terms-of-use/index.html#trademarks)
 
-Last Updated: 02/27/2014
+Last Updated: 03/21/2014
+
+## Latest News
+
+(from the ICE developer, etseng)
+
+The GitHub code (QC and ICE) are in final testing for SMRTanalysis release 2.2! The corressponding [ICE release version in GitHub is 1.1.6](https://github.com/PacificBiosciences/cDNA_primer/releases). The SMRTanalysis RS_IsoSeq module is a wrapper around exactly the same code available on this GitHub, except with modifications to be compatible with 2.2 smrtanalysis API. I will be writing a wiki about how to run the production version through either SMRTPortal (easier to use, but more limited functionality) and command line (more flexible functionality, but still much easier than GitHub code version).
+
+Also, I am starting to work on ICE version 2! Improvements will include:
+
+- Branching off the production pipeline code. This means the code will be more compatible with latest smrtanalysis framework and makes all my future modifications easier to integrate back into production pipeline.
+- Speed up by converting critical computations. I have done some of this already and estimate a 5-10X speed increase.
+- Opening up previously hard-coded parameters related to: (a) threshold for determining an isoform hit; (b) better output formatting options.
+
+
+Future releases of ICE will start with ICE 2.x prefix.
+
+
 
 ## About This Repository
 
