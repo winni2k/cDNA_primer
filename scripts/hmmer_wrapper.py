@@ -251,14 +251,14 @@ def worker(out_filename_hmmer, p_filename, in_filename, matrix_filename):
     print >> sys.stderr, "CMD:", cmd
     subprocess.check_call(cmd, shell=True)
 
-def hmmer_wrapper_main(output_dir, primer_filename, fasta_filename, output_filename, k=100, cpus=8, see_left=True, see_right=True, min_seqlen=50, min_score=10, output_anyway=False, change_seqid=False, must_see_polyA=False):
+def hmmer_wrapper_main(output_dir, primer_filename, fasta_filename, output_filename, hmmer_out='hmmer.out', k=100, cpus=8, see_left=True, see_right=True, min_seqlen=50, min_score=10, output_anyway=False, change_seqid=False, must_see_polyA=False):
     # find the matrix file PBMATRIX.txt
     matrix_filename = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'PBMATRIX.txt')
     if not os.path.exists(matrix_filename):
         print >> sys.stderr, "Expected matrix file {0} but not found. Abort!".format(matrix_filename)
         sys.exit(-1)
     
-    out_filename_hmmer = os.path.join(output_dir, 'hmmer.out')
+    out_filename_hmmer = os.path.join(output_dir, hmmer_out)
     if os.path.exists(output_dir):
         if os.path.exists(out_filename_hmmer):
             print >> sys.stderr, "output directory {0} already exists. Running just the primer trimming part.".format(output_dir)
@@ -330,10 +330,11 @@ if __name__ == "__main__":
 
     group1 = parser.add_argument_group("HMMER options")
     group1.add_argument("-p", "--primer_filename", default="primers.fa", help="Primer fasta file")
-    group1.add_argument("-i", "--input_filename", default="filtered_subreads.fasta", help="Input fasta file (usually filtered_subreads.fasta or filtered_CCS_subreads.fasta)")
+    group1.add_argument("-i", "--input_filename", default="reads_of_insert.fasta", help="Input fasta file (usually reads_of_insert.fasta")
     group1.add_argument("-d", "--directory", default="output", help="Directory to store HMMER output (default: output/)")
     group1.add_argument("-k", "--primer_search_window", default=100, type=int, help="Search in the first/last k-bp for primers. Must be longer than the longest primer. (default: 100)")
     group1.add_argument("--cpus", default=8, type=int, help="Number of CPUs to run HMMER (default: 8)")
+    group1.add_argument("--hmmer-out", default="hmmer.out", dest="hmmer_out", help="Hmmer output filename (default: hmmer.out)")
 
     group2 = parser.add_argument_group("Primer trimming options")
     group2.add_argument("--must-see-polyA", dest="must_see_polyA", action="store_true", default=False, help="Must see polyA/T tail (default: False)")
@@ -346,7 +347,7 @@ if __name__ == "__main__":
     group2.add_argument("-o", "--output_filename", required=True, help="Output fasta filename")
 
     args = parser.parse_args()
-    hmmer_wrapper_main(args.directory, args.primer_filename, args.input_filename, args.output_filename, args.primer_search_window, args.cpus,\
+    hmmer_wrapper_main(args.directory, args.primer_filename, args.input_filename, args.output_filename, args.hmmer_out, args.primer_search_window, args.cpus,\
         not args.left_nosee_ok, not args.right_nosee_ok, args.min_seqlen, args.min_score, args.output_anyway, args.change_seqid, must_see_polyA=args.must_see_polyA)
 
 

@@ -1,41 +1,4 @@
 #!/usr/bin/env python
-#################################################################################$$
-# Copyright (c) 2011-2014, Pacific Biosciences of California, Inc.
-#
-# All rights reserved.
-#
-# Redistribution and use in source and binary forms, with or without
-# modification, are permitted (subject to the limitations in the
-# disclaimer below) provided that the following conditions are met:
-#
-#  * Redistributions of source code must retain the above copyright
-#  notice, this list of conditions and the following disclaimer.
-#
-#  * Redistributions in binary form must reproduce the above
-#  copyright notice, this list of conditions and the following
-#  disclaimer in the documentation and/or other materials provided
-#  with the distribution.
-#
-#  * Neither the name of Pacific Biosciences nor the names of its
-#  contributors may be used to endorse or promote products derived
-#  from this software without specific prior written permission.
-#
-# NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
-# GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY PACIFIC
-# BIOSCIENCES AND ITS CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
-# WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
-# OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-# DISCLAIMED. IN NO EVENT SHALL PACIFIC BIOSCIENCES OR ITS
-# CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
-# LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
-# USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-# ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
-# OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
-# SUCH DAMAGE.
-#################################################################################$$
-
 __author__ = 'etseng@pacificbiosciences.com'
 import os, sys, multiprocessing, subprocess
 from collections import defaultdict
@@ -137,14 +100,14 @@ def remove_chimeras(fasta_filename, suspicious_hits, max_adjacent_hit_distance):
     f_nonchimera.close()
     print >> sys.stderr, "Number of chimera-to-non-chimera: {0}/{1}".format(count_chimera, count_nonchimera)
 
-def chimera_finder_main(output_dir, primer_filename, fasta_filename, min_dist_from_end=100, max_adjacent_hit_distance=50, cpus=8, min_score=10):
+def chimera_finder_main(output_dir, primer_filename, fasta_filename, hmmer_out_filename='hmmer_for_chimera.out', min_dist_from_end=100, max_adjacent_hit_distance=50, cpus=8, min_score=10):
     # find the matrix file PBMATRIX.txt
     matrix_filename = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'PBMATRIX.txt')
     if not os.path.exists(matrix_filename):
         print >> sys.stderr, "Expected matrix file {0} but not found. Abort!".format(matrix_filename)
         sys.exit(-1)
     
-    out_filename_hmmer = os.path.join(output_dir, 'hmmer_for_chimera.out')
+    out_filename_hmmer = os.path.join(output_dir, hmmer_out_filename)
     if os.path.exists(output_dir):
         if os.path.exists(out_filename_hmmer):
             print >> sys.stderr, "output directory {0} already exists. Running just the primer trimming part.".format(output_dir)
@@ -212,6 +175,7 @@ if __name__ == "__main__":
     group1.add_argument("-i", "--input_filename", default="filtered_subreads.fasta", help="Input fasta file (usually filtered_subreads.fasta or filtered_CCS_subreads.fasta)")
     group1.add_argument("-d", "--directory", default="output", help="Directory to store HMMER output (default: output/)")
     group1.add_argument("--cpus", default=8, type=int, help="Number of CPUs to run HMMER (default: 8)")
+    group1.add_argument("--hmmer-out", default="hmmer_for_chimera.out", dest="hmmer_out", help="Hmmer output filename (default: hmmer_for_chimera.out)")
 
     group2 = parser.add_argument_group("Chimera detection options")
     group2.add_argument("--min_dist-from_end", type=int, default=100, help="Minimum distance the primer hit has to be from end of sequence (default: 100)")
@@ -220,6 +184,6 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    chimera_finder_main(args.directory, args.primer_filename, args.input_filename, args.min_dist_from_end, args.max_adjacent_hit_distance, args.cpus, args.min_score)
+    chimera_finder_main(args.directory, args.primer_filename, args.input_filename, args.hmmer_out, args.min_dist_from_end, args.max_adjacent_hit_distance, args.cpus, args.min_score)
 
     
