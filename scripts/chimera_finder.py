@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+__version__='1.0.1'
 __author__ = 'etseng@pacificbiosciences.com'
 #################################################################################$$
 # Copyright (c) 2011-2014, Pacific Biosciences of California, Inc.
@@ -97,7 +98,7 @@ def parse_hmmer_dom_for_chimera(dom_filename, min_score, min_dist_from_end):
 
 def remove_chimeras(fasta_filename, suspicious_hits, max_adjacent_hit_distance, output_fq=False):
     """
-    Output written to <fasta_filename>.non_chimera.fa and <fasta_filename>.is_chimera.fa
+    Output written to <fasta_filename>.non_chimera.fa/fq and <fasta_filename>.is_chimera.fa/fq
     """
     def is_chimera(dom_records):
         """
@@ -141,6 +142,11 @@ def remove_chimeras(fasta_filename, suspicious_hits, max_adjacent_hit_distance, 
     print >> sys.stderr, "Number of chimera-to-non-chimera: {0}/{1}".format(count_chimera, count_nonchimera)
 
 def chimera_finder_main(output_dir, primer_filename, fasta_filename, hmmer_out_filename='hmmer_for_chimera.out', min_dist_from_end=100, max_adjacent_hit_distance=50, cpus=8, min_score=10, output_fq=False):
+    """
+    (1) run HMMER on the split input
+    (2) parse HMMER output
+    (3) split input into chimeric and non-chimeric
+    """
     # find the matrix file PBMATRIX.txt
     matrix_filename = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'PBMATRIX.txt')
     if not os.path.exists(matrix_filename):
@@ -212,8 +218,8 @@ if __name__ == "__main__":
 
     group1 = parser.add_argument_group("HMMER options")
     group1.add_argument("-p", "--primer_filename", default="primers.fa", help="Primer fasta file")
-    group1.add_argument("-i", "--input_filename", default="filtered_subreads.fasta", help="Input fasta file (usually filtered_subreads.fasta or filtered_CCS_subreads.fasta)")
-    group1.add_argument("-d", "--directory", default="output", help="Directory to store HMMER output (default: output/)")
+    group1.add_argument("-i", "--input_filename", required=True, help="Input fasta/fastq file (should already have end primers trimmed using hmmer_wrapper.py)")
+    group1.add_argument("-d", "--directory", default="output", help="Directory to store HMMER output")
     group1.add_argument("--cpus", default=8, type=int, help="Number of CPUs to run HMMER (default: 8)")
     group1.add_argument("--hmmer-out", default="hmmer_for_chimera.out", dest="hmmer_out", help="Hmmer output filename (default: hmmer_for_chimera.out)")
 

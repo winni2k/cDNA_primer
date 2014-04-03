@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+__version__='1.0.1'
 __author__ = 'etseng@pacificbiosciences.com'
 #################################################################################$$
 # Copyright (c) 2011-2014, Pacific Biosciences of California, Inc.
@@ -396,7 +397,7 @@ if __name__ == "__main__":
 
     group1 = parser.add_argument_group("HMMER options")
     group1.add_argument("-p", "--primer_filename", default="primers.fa", help="Primer fasta file")
-    group1.add_argument("-i", "--input_filename", default="reads_of_insert.fasta", help="Input fasta file (usually reads_of_insert.fasta")
+    group1.add_argument("-i", "--input_filename", default="reads_of_insert.fasta", help="Input fasta/fastq file (usually reads_of_insert.fasta")
     group1.add_argument("-d", "--directory", default="output", help="Directory to store HMMER output (default: output/)")
     group1.add_argument("-k", "--primer_search_window", default=100, type=int, help="Search in the first/last k-bp for primers. Must be longer than the longest primer. (default: 100)")
     group1.add_argument("--cpus", default=8, type=int, help="Number of CPUs to run HMMER (default: 8)")
