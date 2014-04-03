@@ -1,12 +1,12 @@
 [DevNet](https://github.com/PacificBiosciences/cDNA_primer/wiki) | <a href="mailto:devnet@pacificbiosciences.com">Contact Us</a> | [Terms of Use](http://pacbiodevnet.com/Terms_of_Use.html) | [Trademarks](http://pacb.com/terms-of-use/index.html#trademarks)
 
-Last Updated: 03/21/2014
+Last Updated: 04/03/2014
 
 ## Latest News
 
 (from the ICE developer, etseng)
 
-The GitHub code (QC and ICE) are in final testing for SMRTanalysis release 2.2! The corressponding [ICE release version in GitHub is 1.1.6](https://github.com/PacificBiosciences/cDNA_primer/releases). The SMRTanalysis RS_IsoSeq module is a wrapper around exactly the same code available on this GitHub, except with modifications to be compatible with 2.2 smrtanalysis API. I will be writing a wiki about how to run the production version through either SMRTPortal (easier to use, but more limited functionality) and command line (more flexible functionality, but still much easier than GitHub code version).
+The GitHub code (QC and ICE) has been rolled into official pipeline SMRTanalysis release 2.2! The corressponding [ICE release version in GitHub is 1.1.6](https://github.com/PacificBiosciences/cDNA_primer/releases). The SMRTanalysis RS_IsoSeq module is a wrapper around exactly the same code available on this GitHub, except with modifications to be compatible with 2.2 smrtanalysis API. See [wiki page](https://github.com/PacificBiosciences/cDNA_primer/wiki) for list of tutorials.
 
 Also, I am starting to work on ICE version 2! Improvements will include:
 
@@ -24,7 +24,7 @@ Future releases of ICE will start with ICE 2.x prefix.
 The scripts in this repository is developed for the purpose of analyzing transcriptome data generated using the PacBio(R) [Iso-Seq(TM) protocol](http://www.smrtcommunity.com/Share/Protocol?id=a1q70000000HqSvAAK&strRecordTypeName=Protocol). 
 
 
-This code is not part of the official PacBio software package and is developed solely by Elizabeth Tseng. Plans to incorporate this code into the official software pipeline are underway and the protocol will be available in the 2.2 release.
+This code is not part of the official PacBio software package and is developed solely by Elizabeth Tseng. The official software version is the RS_IsoSeq protocol.
 
 
 The code is divided into two sections:
