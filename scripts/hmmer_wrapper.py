@@ -1,8 +1,46 @@
 #!/usr/bin/env python
 __author__ = 'etseng@pacificbiosciences.com'
+#################################################################################$$
+# Copyright (c) 2011-2014, Pacific Biosciences of California, Inc.
+#
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted (subject to the limitations in the
+# disclaimer below) provided that the following conditions are met:
+#
+#  * Redistributions of source code must retain the above copyright
+#  notice, this list of conditions and the following disclaimer.
+#
+#  * Redistributions in binary form must reproduce the above
+#  copyright notice, this list of conditions and the following
+#  disclaimer in the documentation and/or other materials provided
+#  with the distribution.
+#
+#  * Neither the name of Pacific Biosciences nor the names of its
+#  contributors may be used to endorse or promote products derived
+#  from this software without specific prior written permission.
+#
+# NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+# GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY PACIFIC
+# BIOSCIENCES AND ITS CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+# WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+# OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL PACIFIC BIOSCIENCES OR ITS
+# CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+# LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF
+# USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+# ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT
+# OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+# SUCH DAMAGE.
+#################################################################################$$
 import os, sys, subprocess, multiprocessing
-from Bio import SeqIO
 from collections import defaultdict, namedtuple
+
+from Bio import SeqIO, Seq, SeqRecord
+smart_fa_fq_func = lambda x, y: SeqIO.parse(open(x), y)
 
 """
 Steps for running HMMER to identify & trim away barcodes
@@ -15,6 +53,18 @@ Steps for running HMMER to identify & trim away barcodes
 """
 
 DOMRecord = namedtuple("DOMRecord", "pStart pEnd sStart sEnd score")
+
+
+def smart_fa_fq_reader(filename):
+    with open(filename, 'r') as f:
+        line = f.readline()
+    if line.startswith('>'):
+        return smart_fa_fq_func(filename, 'fasta')
+    elif line.startswith('@'):
+        return smart_fa_fq_func(filename, 'fastq')
+    else:
+        raise Exception, "Unrecognized file format! Must be FASTA/FASTQ."
+
 
 def polyA_finder(seq, isA, min_len=8, p3_start=None):
     """
@@ -76,7 +126,7 @@ def sanity_check_primers(primer_filename, k, p_filename):
     cur_head = 'F'
     last = None
     f = open(p_filename, 'w')
-    for r in SeqIO.parse(open(primer_filename), 'fasta'):
+    for r in smart_fa_fq_reader(primer_filename):
         expected_id = cur_head + str(cur_index)
         if r.id != expected_id:
             print >> sys.stderr, "expected id {0} but got {1}. Bad ID. Abort!".format(expected_id, r.id)
@@ -85,13 +135,11 @@ def sanity_check_primers(primer_filename, k, p_filename):
             print >> sys.stderr, "primer {0} has length {1} which is longer than k ({2}). Not ok. Abort!".format(r.id, len(r.seq), k)
             sys.exit(-1)
         if cur_head == 'R':
-            if str(last.seq.reverse_complement()) == str(r.seq):
+            if str(last.seq.reverse_complement().upper()) == str(r.seq.upper()):
                 print >> sys.stderr, "F{0}/R{0} primer pair are reverse-complementarily identical. Adding 'AAAA' in 3' to distinguish".format(cur_index)
                 f.write(">{0}\n{1}\n>{2}\n{3}TTTT\n".format(last.id, last.seq, r.id, r.seq.reverse_complement()))
-                #f.write(">{0}_revcomp\n{1}\n>{2}_revcomp\nAAAA{3}\n".format(last.id, last.seq.reverse_complement(), r.id, r.seq))
             else:
                 f.write(">{0}\n{1}\n>{2}\n{3}\n".format(last.id, last.seq, r.id, r.seq.reverse_complement()))
-                #f.write(">{0}_revcomp\n{1}\n>{2}_revcomp\n{3}\n".format(last.id, last.seq.reverse_complement(), r.id, r.seq))
             cur_index += 1
         last = r
         cur_head = 'R' if cur_head == 'F' else 'F'
@@ -164,12 +212,12 @@ def pick_best_primer_combo(d_front, d_back, primer_indices, min_score):
         return best_ind, best_strand, g(d_back, k1), g(d_front, k2)
 
 
-def trim_barcode(primer_indices, fasta_filename, output_filename, d_fw, d_rc, k, see_left, see_right, min_seqlen, min_score, output_anyway=False, change_seqid=False, must_see_polyA=False):
+def trim_barcode(primer_indices, fasta_filename, output_filename, d_fw, d_rc, k, see_left, see_right, min_seqlen, min_score, output_anyway=False, change_seqid=False, must_see_polyA=False, output_fq=False):
     fout = open(output_filename, 'w')
     freport = open(output_filename + '.primer_info.txt', 'w')
-    freport.write("ID\tstrand\t5seen\tpolyAseen\t3seen\t5end\tpolyAend\t3end\tprimer\n")
+    freport.write("ID\tstrand\tfiveseen\tpolyAseen\tthreeseen\tfiveend\tpolyAend\tthreeend\tprimer\n")
 
-    for r in SeqIO.parse(open(fasta_filename), 'fasta'):
+    for r in smart_fa_fq_reader(fasta_filename):
         ind, strand, fw, rc = pick_best_primer_combo(d_fw[r.id], d_rc[r.id], primer_indices, min_score)
         if fw is None and rc is None: # no match to either fw/rc primer on any end!
             # write the report
@@ -178,10 +226,17 @@ def trim_barcode(primer_indices, fasta_filename, output_filename, d_fw, d_rc, k,
                     r.id = "{0}/0_{1}_CCS".format(r.id, len(r.seq))
                 elif r.id.endswith('/ccs'): # another CCS possible format
                     r.id = "{0}/0_{1}_CCS".format(r.id[:-4], len(r.seq))
-                fout.write(">{0}\n{1}\n".format(r.id, r.seq))
+                SeqIO.write(r, fout, 'fasta' if not output_fq else 'fastq')
+                #fout.write(">{0}\n{1}\n".format(r.id, r.seq))
             freport.write("{id}\tNA\t0\t0\t0\tNA\tNA\tNA\tNA\n".format(id=r.id))
         else:
             seq = str(r.seq) if strand == '+' else str(r.seq.reverse_complement())
+            if output_fq:
+                qual = r.letter_annotations['phred_quality']
+                if strand == '-':
+                    qual.reverse()
+            else:
+                qual = None
             p5_start, p5_end, p3_start, p3_end = None, None, None, None
             # pid, pStart, pEnd, sStart, sEnd, score
             if fw is not None:
@@ -213,14 +268,17 @@ def trim_barcode(primer_indices, fasta_filename, output_filename, d_fw, d_rc, k,
             polyA_i = polyA_finder(seq, isA=True, p3_start=p3_start)
             if polyA_i > 0: # polyA tail found!
                 seq = seq[:polyA_i]
+                if output_fq: qual = qual[:polyA_i]
                 e1 = s + polyA_i if strand == '+' else e - polyA_i
             elif p3_start is not None:
                 seq = seq[:p3_start]
+                if output_fq: qual = qual[:p3_start]
                 e1 = s + p3_start if strand == '+' else e - p3_start
             else:
                 e1 = e if strand == '+' else s
             if p5_end is not None:
                 seq = seq[p5_end:]
+                if output_fq: qual = qual[p5_end:]
                 s1 = s + p5_end if strand == '+' else e - p5_end
             else:
                 s1 = s if strand == '+' else e
@@ -231,7 +289,15 @@ def trim_barcode(primer_indices, fasta_filename, output_filename, d_fw, d_rc, k,
                 newid = "{0}/{1}/{2}_{3}".format(movie,hn,s1,e1) if change_seqid else r.id
             # only write if passes criteria or output_anyway is True
             if ((not see_left or p5_end is not None) and (not see_right or p3_start is not None) and (not must_see_polyA or polyA_i > 0) and len(seq) >= min_seqlen) or (output_anyway and len(seq)>=min_seqlen):
-                fout.write(">{0}\n{1}\n".format(newid, seq))
+                if not output_fq:
+                    rec = SeqRecord.SeqRecord(id=newid, seq=Seq.Seq(seq), description='')
+                else:
+                    if qual is None:
+                        print >> sys.stderr, "Cannot output FASTQ format if input file is not in FASTQ. Abort."
+                        sys.exit(-1)
+                    rec = SeqRecord.SeqRecord(id=newid, seq=Seq.Seq(seq), description='', letter_annotations={'phred_quality': qual})
+                SeqIO.write(rec, fout, 'fasta' if not output_fq else 'fastq')
+                #fout.write(">{0}\n{1}\n".format(newid, seq))
             # but write to report regardless!
             freport.write("{id}\t{strand}\t{seen5}\t{seenA}\t{seen3}\t{e5}\t{eA}\t{e3}\t{pm}\n".format(\
                 id=newid, strand=strand,\
@@ -251,7 +317,7 @@ def worker(out_filename_hmmer, p_filename, in_filename, matrix_filename):
     print >> sys.stderr, "CMD:", cmd
     subprocess.check_call(cmd, shell=True)
 
-def hmmer_wrapper_main(output_dir, primer_filename, fasta_filename, output_filename, hmmer_out='hmmer.out', k=100, cpus=8, see_left=True, see_right=True, min_seqlen=50, min_score=10, output_anyway=False, change_seqid=False, must_see_polyA=False):
+def hmmer_wrapper_main(output_dir, primer_filename, fasta_filename, output_filename, hmmer_out='hmmer.out', k=100, cpus=8, see_left=True, see_right=True, min_seqlen=50, min_score=10, output_anyway=False, change_seqid=False, must_see_polyA=False, output_fq=False):
     # find the matrix file PBMATRIX.txt
     matrix_filename = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'PBMATRIX.txt')
     if not os.path.exists(matrix_filename):
@@ -285,7 +351,7 @@ def hmmer_wrapper_main(output_dir, primer_filename, fasta_filename, output_filen
         count = 0
         jobs = []
         f_in = open(os.path.join(output_dir, 'in.fa_split'+str(i)), 'w')
-        for r in SeqIO.parse(open(fasta_filename), 'fasta'):
+        for r in smart_fa_fq_reader(fasta_filename):
             r_seq = r.seq.reverse_complement()
             f_in.write(">{0}_front\n{1}\n>{0}_back\n{2}\n".format(r.id, r.seq[:k], r_seq[:k]))
             count += 1
@@ -316,7 +382,7 @@ def hmmer_wrapper_main(output_dir, primer_filename, fasta_filename, output_filen
     d_back = defaultdict(lambda: None)
     parse_hmmer_dom(out_filename_hmmer, d_front, d_back, min_score)
 
-    trim_barcode(p_indices, fasta_filename, output_filename, d_front, d_back, k, see_left, see_right, min_seqlen, min_score, output_anyway, change_seqid, must_see_polyA)
+    trim_barcode(p_indices, fasta_filename, output_filename, d_front, d_back, k, see_left, see_right, min_seqlen, min_score, output_anyway, change_seqid, must_see_polyA, output_fq)
     print >> sys.stderr, "Trimmed output fasta filename:", output_filename
     
     print >> sys.stderr, "Cleaning split files"
@@ -344,11 +410,12 @@ if __name__ == "__main__":
     group2.add_argument("--change-seqid", dest='change_seqid', action="store_true", default=False, help="Change seq id to reflect trimming (default: off)")
     group2.add_argument("--min-seqlen", dest="min_seqlen", type=int, default=50, help="Minimum seqlength to output (default: 50)")
     group2.add_argument("--min-score", dest="min_score", type=float, default=10, help="Minimum bit score for primer hit (default: 10)")
-    group2.add_argument("-o", "--output_filename", required=True, help="Output fasta filename")
+    group2.add_argument("-o", "--output_filename", required=True, help="Output filename")
+    group2.add_argument("--output-fq", dest="output_fq", action="store_true", default=False, help="Output as FASTQ format (input must be fastq) (default: off)")
 
     args = parser.parse_args()
     hmmer_wrapper_main(args.directory, args.primer_filename, args.input_filename, args.output_filename, args.hmmer_out, args.primer_search_window, args.cpus,\
-        not args.left_nosee_ok, not args.right_nosee_ok, args.min_seqlen, args.min_score, args.output_anyway, args.change_seqid, must_see_polyA=args.must_see_polyA)
+        not args.left_nosee_ok, not args.right_nosee_ok, args.min_seqlen, args.min_score, args.output_anyway, args.change_seqid, must_see_polyA=args.must_see_polyA, output_fq=args.output_fq)
 
 
 
