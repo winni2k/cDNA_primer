@@ -70,7 +70,7 @@ for r in reader:
     d[r['ID'][:r['ID'].rfind('/')]].append(r)
     
 reader=SeqIO.to_dict(SeqIO.parse(open('reads_of_insert.output_anyway_changeid.fa'), 'fasta'))
-g=(lambda lst: any((x['5seen']=='1' and x['3seen']=='1' and (args.ignore_polyA or x['polyAseen']=='1')) for x in lst))
+g=(lambda lst: any((x['fiveseen']=='1' and x['threeseen']=='1' and (args.ignore_polyA or x['polyAseen']=='1')) for x in lst))
 f = open(args.output_fasta, 'w')
 for v in d.itervalues():
     if g(v): continue
