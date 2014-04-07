@@ -494,6 +494,10 @@ class GMAPSAMRecord(SAMRecord):
             try:
                 self.qLen = query_len_dict[self.qID]
             except KeyError: # HACK for blasr's extended qID
-                self.qLen = query_len_dict[self.qID[:self.qID.rfind('/')]]
+                k = self.qID.rfind('/')
+                if k >= 0:
+                    self.qLen = query_len_dict[self.qID[:self.qID.rfind('/')]]
+                else:
+                    self.qLen = query_len_dict[self.qID]
             self.qCoverage = (self.qEnd - self.qStart) * 1. / self.qLen    
                 
