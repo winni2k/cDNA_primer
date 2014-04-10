@@ -3,8 +3,8 @@ from distutils.extension import Extension
 from Cython.Distutils import build_ext
 
 ext_modules = [Extension("BioReaders", ["BioReaders.pyx"]), \
-        Extension("c_branch", ["c_branch.pyx"]), \
-        Extension("intersection_unique", ["intersection_unique.pyx"])]
+        Extension("c_branch", ["c_branch.pyx"])]
+#        Extension("intersection_unique", ["intersection_unique.pyx"])]
 
 setup(
 		name = 'c_cDNA_primer',
