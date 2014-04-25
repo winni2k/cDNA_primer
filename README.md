@@ -1,21 +1,15 @@
 [DevNet](https://github.com/PacificBiosciences/cDNA_primer/wiki) | <a href="mailto:devnet@pacificbiosciences.com">Contact Us</a> | [Terms of Use](http://pacbiodevnet.com/Terms_of_Use.html) | [Trademarks](http://pacb.com/terms-of-use/index.html#trademarks)
 
-Last Updated: 04/03/2014
+Last Updated: 04/22/2014
+
+**IMPORTANT:** The current GitHub scripts are being deprecated. A major code change is underway to integrate the latest GitHub script developements under the SMRTanalysis framework. Some parts of the GitHub scripts are now being changed with non-backwards compatibility. Until the new code is released (which will be fully compatible with smrtanalysis 2.2 and GitHub versions of other PacBio libraries), it is recommended that users use the official 2.2 release for Iso-Seq analysis (see below). 
+
 
 ## Latest News
 
 (from the ICE developer, etseng)
 
-The GitHub code (QC and ICE) has been rolled into official pipeline SMRTanalysis release 2.2! The corressponding [ICE release version in GitHub is 1.1.6](https://github.com/PacificBiosciences/cDNA_primer/releases). The SMRTanalysis RS_IsoSeq module is a wrapper around exactly the same code available on this GitHub, except with modifications to be compatible with 2.2 smrtanalysis API. See [wiki page](https://github.com/PacificBiosciences/cDNA_primer/wiki) for list of tutorials.
-
-Also, I am starting to work on ICE version 2! Improvements will include:
-
-- Branching off the production pipeline code. This means the code will be more compatible with latest smrtanalysis framework and makes all my future modifications easier to integrate back into production pipeline.
-- Speed up by converting critical computations. I have done some of this already and estimate a 5-10X speed increase.
-- Opening up previously hard-coded parameters related to: (a) threshold for determining an isoform hit; (b) better output formatting options.
-
-
-Future releases of ICE will start with ICE 2.x prefix.
+The GitHub code (QC and ICE) has been rolled into official pipeline SMRTanalysis release 2.2! The SMRTanalysis RS_IsoSeq module is a wrapper around exactly the same code available on this GitHub (includes both full-length read identification *and* ICE), except with modifications to be compatible with 2.2 smrtanalysis API. See [wiki page](https://github.com/PacificBiosciences/cDNA_primer/wiki) for list of tutorials.
 
 
 
