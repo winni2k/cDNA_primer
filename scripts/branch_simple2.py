@@ -201,6 +201,7 @@ class BranchSimple:
         a = []
 
         for ids, strand, m in result_merged:
+            assert self.strand==strand
             if ids.count(',')+1 < self.cov_threshold:
                 f_out = f_bad
             else:

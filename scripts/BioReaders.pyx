@@ -1,4 +1,4 @@
-import re
+import re, sys
 from collections import namedtuple
 from exceptions import StopIteration
 
@@ -472,14 +472,20 @@ class GMAPSAMRecord(SAMRecord):
         self.cigar = raw[5]
         self.segments = self.parse_cigar(self.cigar, self.sStart)
         self.sEnd = self.segments[-1].end
-        self.flag = SAMRecord.parse_sam_flag(int(raw[1]))
+        self.flag = SAMRecord.parse_sam_flag(int(raw[1])) # strand can be overwritten by XS:A flag
+        self._flag_strand = self.flag.strand # serve as backup for debugging
         # In Yuan Li's BLASR-to-SAM, XQ:i:<subread length>
         # see https://github.com/PacificBiosciences/blasr/blob/master/common/datastructures/alignmentset/SAMAlignment.h
         for x in raw[11:]:
             if x.startswith('NM:i:'): # number of non-matches
                 self.num_nonmatches = int(x[5:])
                 self.identity = 1. - (self.num_nonmatches * 1. / (self.num_del + self.num_ins + self.num_mat_or_sub))
-                
+            elif x.startswith('XS:A:'): # strand ifnormation
+                _s = x[5:]
+                if _s!='?':
+                    self._flag_strand = self.flag.strand # serve as backup for debugging
+                    self.flag = SAMRecord.SAMflag(self.flag.is_paired, _s, self.flag.PE_read_num)
+
         if ref_len_dict is not None:
             self.sCoverage = (self.sEnd - self.sStart) * 1. / ref_len_dict[self.sID]
             self.sLen = ref_len_dict[self.sID]
