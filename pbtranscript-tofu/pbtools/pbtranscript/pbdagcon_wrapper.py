@@ -34,6 +34,7 @@ from collections import defaultdict
 import numpy as np
 from pbcore.io.FastaIO import FastaReader
 from pbtools.pbtranscript.io.FastaRandomReader import FastaRandomReader
+from argparse import ArgumentParser
 
 __version__ = "Liz-2.1.0"
 
@@ -157,9 +158,18 @@ def pbdagcon_wrapper(fasta_filename, output_prefix, consensus_name, nproc=8, max
         with open(ref_filename, 'w') as f:
             f.write(">{0}_ref\n{1}".format(consensus_name, first_seq.sequence))
 
+def runConsensus(args_list_str):
+    parser = ArgumentParser()
+    parser.add_argument("input_fasta", help="Input fasta filename")
+    parser.add_argument("output_prefix", help="Output filename prefix (ex: g_consensus)")
+    parser.add_argument("consensus_id", help="Consensus sequence ID name (ex: consensus)")
+    parser.add_argument("--nproc", default=8, type=int, help="Number of processes")
+    parser.add_argument("--maxScore", default=-1000, type=int, help="blasr maxScore")
+    args_list = args_list_str.split()
+    args = parser.parse_args(args_list)
+    pbdagcon_wrapper(args.input_fasta, args.output_prefix, args.consensus_id, nproc=args.nproc, maxScore=args.maxScore)
 
 if __name__ == "__main__":
-    from argparse import ArgumentParser
     parser = ArgumentParser()
     parser.add_argument("input_fasta", help="Input fasta filename")
     parser.add_argument("output_prefix", help="Output filename prefix (ex: g_consensus)")
@@ -169,3 +179,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     pbdagcon_wrapper(args.input_fasta, args.output_prefix, args.consensus_id, nproc=args.nproc, maxScore=args.maxScore)
+
+

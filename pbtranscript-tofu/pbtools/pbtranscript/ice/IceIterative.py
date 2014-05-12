@@ -21,7 +21,7 @@ from pbtools.pbtranscript.ice.IceUtils import sanity_check_gcon, \
     sanity_check_sge, possible_merge, blasr_against_ref, \
     get_the_only_fasta_record
 from pbtools.pbtranscript.ice.IceFiles import IceFiles
-from pbtools.pbtranscript.ice_gcontools import runConsensus
+from pbtools.pbtranscript.pbdagcon_wrapper import runConsensus
 
 random.seed(0)
 
