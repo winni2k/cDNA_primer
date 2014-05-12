@@ -3,9 +3,20 @@
 Last Updated: 05/12/2014
 
 
-This README is under construction. Please wait.
 
 ## Latest News
+
+The latest *pbtranscript-tofu* version: 0.2.tofu.134691
+
+The scripts in this repository are now compatible with SMRTAnalysis 2.2. It is a "beta" version of the RS_IsoSeq protocol that is supported in 2.2, meaning that it extends the existing RS_IsoSeq code base, and is an unofficial, developemental version of RS_IsoSeq. This beta version is only accessible via command line. The command line name of the official RS_IsoSeq is *pbtranscript*, to differentiate from the official version, in the tutorials we will refer to the beta version provided on this site as *pbtranscript-tofu*. 
+
+Functionalities provided in *pbtranscript-tofu* are highly developmental and may not make it into the next version of official RS_IsoSeq.
+
+Latest version of *pbtranscript-tofu* contains the following extensions:
+
+* Support for identifying full-length transcripts that does not have polyA tail (ex: RT-PCR transcripts)
+* Faster I/O for base QV reading in clustering, resulting in overall speedup
+* Minor changes to better support SMRTAnalysis 2.2 framework
 
 
 ## About This Repository
@@ -13,7 +24,7 @@ This README is under construction. Please wait.
 The scripts in this repository is developed for the purpose of analyzing transcriptome data generated using the PacBio(R) [Iso-Seq(TM) protocol](http://www.smrtcommunity.com/Share/Protocol?id=a1q70000000HqSvAAK&strRecordTypeName=Protocol). 
 
 
-This code is not part of the official PacBio software package and is developed solely by Elizabeth Tseng. The official software version is the RS_IsoSeq protocol.
+This code is not part of the official PacBio software package and is developed solely by Elizabeth Tseng. The official software version is the RS_IsoSeq protocol. Use this code at your own risk.
 
 
 ## About Iso-Seq(TM)
