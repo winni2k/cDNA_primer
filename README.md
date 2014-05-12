@@ -1,16 +1,11 @@
 [DevNet](https://github.com/PacificBiosciences/cDNA_primer/wiki) | <a href="mailto:devnet@pacificbiosciences.com">Contact Us</a> | [Terms of Use](http://pacbiodevnet.com/Terms_of_Use.html) | [Trademarks](http://pacb.com/terms-of-use/index.html#trademarks)
 
-Last Updated: 04/22/2014
+Last Updated: 05/12/2014
 
-**IMPORTANT:** The current GitHub scripts are being deprecated. A major code change is underway to integrate the latest GitHub script developements under the SMRTanalysis framework. Some parts of the GitHub scripts are now being changed with non-backwards compatibility. Until the new code is released (which will be fully compatible with smrtanalysis 2.2 and GitHub versions of other PacBio libraries), it is recommended that users use the official 2.2 release for Iso-Seq analysis (see below). 
 
+This README is under construction. Please wait.
 
 ## Latest News
-
-(from the ICE developer, etseng)
-
-The GitHub code (QC and ICE) has been rolled into official pipeline SMRTanalysis release 2.2! The SMRTanalysis RS_IsoSeq module is a wrapper around exactly the same code available on this GitHub (includes both full-length read identification *and* ICE), except with modifications to be compatible with 2.2 smrtanalysis API. See [wiki page](https://github.com/PacificBiosciences/cDNA_primer/wiki) for list of tutorials.
-
 
 
 ## About This Repository
@@ -19,13 +14,6 @@ The scripts in this repository is developed for the purpose of analyzing transcr
 
 
 This code is not part of the official PacBio software package and is developed solely by Elizabeth Tseng. The official software version is the RS_IsoSeq protocol.
-
-
-The code is divided into two sections:
-
-*Quality Control* --- scripts for (a) identifying full-length reads and (b) identifying artificial chimeric reads. The scripts are in the [scripts/](https://github.com/PacificBiosciences/cDNA_primer/tree/master/scripts) directory and tutorial #1-#5 from the [wiki](https://github.com/PacificBiosciences/cDNA_primer/wiki) covers its usage. Read scripts/INSTALL for how to compile code.
-
-*ICE* --- scripts for (a) isoform-level clustering for consensus calling; (b) recruitment of non-FL reads and calling [Quiver](https://github.com/PacificBiosciences/GenomicConsensus/blob/master/doc/HowToQuiver.rst) for final consensus polishing. ICE is released in a [separate tarball](https://github.com/PacificBiosciences/cDNA_primer/releases) and ICE tutorial #1-#2 from the [wiki](https://github.com/PacificBiosciences/cDNA_primer/wiki) covers its usage. The QC scripts are a pre-requisite for running ICE.
 
 
 ## About Iso-Seq(TM)
