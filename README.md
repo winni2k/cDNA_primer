@@ -15,6 +15,7 @@ Functionalities provided in *pbtranscript-tofu* are highly developmental and may
 Latest version of *pbtranscript-tofu* contains the following extensions:
 
 * Support for identifying full-length transcripts that does not have polyA tail (ex: RT-PCR transcripts)
+* Support for collapsing redundant transcripts based on alignment SAM file
 * Faster I/O for base QV reading in clustering, resulting in overall speedup
 * Minor changes to better support SMRTAnalysis 2.2 framework
 
