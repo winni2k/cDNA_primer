@@ -28,7 +28,7 @@ class BranchSimple:
         self.exons = None
 
         self.transfrag_filename = transfrag_filename
-        self.transfrag_len_dict = dict((r.name, len(r.sequence)) for r in FastaReader(transfrag_filename))
+        self.transfrag_len_dict = dict((r.name.split()[0], len(r.sequence)) for r in FastaReader(transfrag_filename))
 
         self.cov_threshold = cov_threshold # only output GTF records if >= this many GMAP records support it (this must be if I'm running non-clustered fasta on GMAP)
 
