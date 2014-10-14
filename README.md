@@ -1,23 +1,23 @@
 [DevNet](https://github.com/PacificBiosciences/cDNA_primer/wiki) | <a href="mailto:devnet@pacificbiosciences.com">Contact Us</a> | [Terms of Use](http://pacbiodevnet.com/Terms_of_Use.html) | [Trademarks](http://pacb.com/terms-of-use/index.html#trademarks)
 
-Last Updated: 05/12/2014
+Last Updated: 10/14/2014
 
 
 
 ## Latest News
 
-The latest *pbtranscript-tofu* version: 0.2.tofu.134691
+The latest *pbtranscript-tofu* version: TBA. A new version of *tofu* that is compatible and improves upon the newly released SMRTAnalyss 2.3 will be released soon.
 
-The scripts in this repository are now compatible with SMRTAnalysis 2.2. It is a "beta" version of the RS_IsoSeq protocol that is supported in 2.2, meaning that it extends the existing RS_IsoSeq code base, and is an unofficial, developemental version of RS_IsoSeq. This beta version is only accessible via command line. The command line name of the official RS_IsoSeq is *pbtranscript*, to differentiate from the official version, in the tutorials we will refer to the beta version provided on this site as *pbtranscript-tofu*. 
+The scripts in this repository are now compatible with SMRTAnalysis 2.3. It is a "beta" version of the RS_IsoSeq protocol that is supported in 2.2, meaning that it extends the existing RS_IsoSeq code base, and is an unofficial, developemental version of RS_IsoSeq. This beta version is only accessible via command line. The command line name of the official RS_IsoSeq is *pbtranscript*, to differentiate from the official version, in the tutorials we will refer to the beta version provided on this site as *pbtranscript-tofu*. 
 
 Functionalities provided in *pbtranscript-tofu* are highly developmental and may not make it into the next version of official RS_IsoSeq.
 
 Latest version of *pbtranscript-tofu* contains the following extensions:
 
-* Support for identifying full-length transcripts that does not have polyA tail (ex: RT-PCR transcripts)
+* *tofu_wrap.py* is a wrapper around *pbtranscript.py* that automatically divides input into different size bins, runs clustering on the individual bins and combines them later, reducing unnecessary memory usage & runtime
+* Support for "--fasta_fofn" input; also using multi-core for generating .bax.h5.fasta files for speedup
 * Support for collapsing redundant transcripts based on alignment SAM file
-* Faster I/O for base QV reading in clustering, resulting in overall speedup
-* Minor changes to better support SMRTAnalysis 2.2 framework
+* Minor changes to better support SMRTAnalysis 2.3 framework
 
 
 ## About This Repository
