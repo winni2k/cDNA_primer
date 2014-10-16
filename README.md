@@ -8,7 +8,7 @@ Last Updated: 10/14/2014
 
 The latest *pbtranscript-tofu* version: TBA. A new version of *tofu* that is compatible and improves upon the newly released SMRTAnalyss 2.3 will be released soon.
 
-The scripts in this repository are now compatible with SMRTAnalysis 2.3. It is a "beta" version of the RS_IsoSeq protocol that is supported in 2.2, meaning that it extends the existing RS_IsoSeq code base, and is an unofficial, developemental version of RS_IsoSeq. This beta version is only accessible via command line. The command line name of the official RS_IsoSeq is *pbtranscript*, to differentiate from the official version, in the tutorials we will refer to the beta version provided on this site as *pbtranscript-tofu*. 
+The scripts in this repository are now compatible with SMRTAnalysis 2.3. It is a "beta" version of the RS_IsoSeq protocol that is supported in 2.3, meaning that it extends the existing RS_IsoSeq code base, and is an unofficial, developemental version of RS_IsoSeq. This beta version is only accessible via command line. The command line name of the official RS_IsoSeq is *pbtranscript*, to differentiate from the official version, in the tutorials we will refer to the beta version provided on this site as *pbtranscript-tofu*. 
 
 Functionalities provided in *pbtranscript-tofu* are highly developmental and may not make it into the next version of official RS_IsoSeq.
 
