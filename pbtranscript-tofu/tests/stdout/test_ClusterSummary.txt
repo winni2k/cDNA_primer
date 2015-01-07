@@ -1,0 +1,2 @@
+Number of consensus isoforms=97
+Average consensus isoforms read length=3945

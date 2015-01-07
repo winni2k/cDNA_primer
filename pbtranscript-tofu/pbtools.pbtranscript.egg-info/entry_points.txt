@@ -1,0 +1,7 @@
+[console_scripts]
+ice_make_input_fasta_fofn.py = pbtools.pbtranscript.ice.make_input_fasta_fofn:main
+ice_post_quiver.py = pbtools.pbtranscript.ice.IcePostQuiver:main
+ice_polish.py = pbtools.pbtranscript.Polish:main
+filter_sam.py = pbtools.pbtranscript.io.filter_sam:main
+fasta_splitter.py = pbtools.pbtranscript.io.FastaSplitter:main
+
