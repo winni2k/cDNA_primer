@@ -9,7 +9,7 @@ from pbtools.pbtranscript.PBTranscriptOptions import add_cluster_arguments
 from pbtools.pbtranscript.ice.IceUtils import convert_fofn_to_fasta
 from pbtools.pbtranscript.counting import get_read_count_from_collapsed as sp
 from bisect import bisect_right
-
+from collections import defaultdict
 
 def sep_flnc_by_primer(flnc_filename, root_dir, output_filename='isoseq_flnc.fasta'):
     """
@@ -45,20 +45,25 @@ def sep_flnc_by_primer(flnc_filename, root_dir, output_filename='isoseq_flnc.fas
     return [handles[x] for x in primers]
 
 
-def sep_flnc_by_size(flnc_filename, root_dir, bin_size_kb=1, bin_manual=None, output_filename='isoseq_flnc.fasta'):
+def sep_flnc_by_size(flnc_filename, root_dir, bin_size_kb=1, bin_manual=None, max_base_limit_MB=600, output_filename='isoseq_flnc.fasta'):
     """
     Separate flnc fasta into different size bins
     ex: make <root_dir>/0to2k/isoseq_flnc.fasta ... etc ...
 
     If <bin_manual> (ex: (0, 2, 4, 12)) is given, <bin_size_kb> is ignored.
+
+    If max_base_limit_MB is not None, it caps the per-partition # of bases (in Mb)
+    So could have 0to1k_part1, 0to2k_part2...etc...
     """
     # first check min - max size range
     min_size = 0
     max_size = 0
+    base_in_each_size = defaultdict(lambda: 0) # size(in kb)--> number of bases
     for r in FastaReader(flnc_filename):
         seqlen = len(r.sequence)
         min_size = min(min_size, seqlen)
         max_size = max(max_size, seqlen)
+        base_in_each_size[seqlen/1000] += len(r.sequence)
     
     min_size_kb = min_size/1000
     max_size_kb = max_size/1000 + (1 if max_size%1000 > 1 else 0)
@@ -73,24 +78,43 @@ def sep_flnc_by_size(flnc_filename, root_dir, bin_size_kb=1, bin_manual=None, ou
 
     print >> sys.stderr, bins
 
+    max_bin = len(bins)-1
+    # for each bin, see if further partitioning is needed
+    base_in_each_bin = defaultdict(lambda: 0)
+    num_parts_in_each_bin = defaultdict(lambda: 1)
+    part_counter_in_each_bin = defaultdict(lambda: 0)
+    if max_base_limit_MB is not None:
+        for kb_size, num_bases in base_in_each_size.iteritems():
+            i = min(max_bin, max(0, bisect_right(bins, kb_size)-1))
+            base_in_each_bin[i] += num_bases
+        for bin_i, num_bases in base_in_each_bin.iteritems():
+            num_parts_in_each_bin[bin_i] = int((num_bases*1. / 10**6) / max_base_limit_MB) + \
+                    (1 if (num_bases*1. / 10**6) % max_base_limit_MB > 0 else 0)
+
     handles = {}
     for i in xrange(len(bins)-1):
-        dirname = os.path.join(root_dir, "{0}to{1}kb".format(bins[i], bins[i+1]))
-        if os.path.exists(dirname):
-            print >> sys.stderr, "WARNING: {0} already exists.".format(dirname)
-        else:
-            os.makedirs(dirname)
-        handles[i] = open(os.path.join(dirname, output_filename), 'w')
+        for part in xrange(num_parts_in_each_bin[i]):
+            dirname = os.path.join(root_dir, "{0}to{1}kb_part{2}".format(bins[i], bins[i+1], part))
+            if os.path.exists(dirname):
+                print >> sys.stderr, "WARNING: {0} already exists.".format(dirname)
+            else:
+                os.makedirs(dirname)
+            handles[(i,part)] = open(os.path.join(dirname, output_filename), 'w')
 
-    max_bin = len(bins)-1
+
     for r in FastaReader(flnc_filename):
         kb_size = len(r.sequence)/1000
         i = min(max_bin, max(0, bisect_right(bins, kb_size)-1))
-        handles[i].write(">{0}\n{1}\n".format(r.name, r.sequence))
-        print >> sys.stderr, "putting {0} in {1}".format(len(r.sequence), handles[i].name)
+        part = part_counter_in_each_bin[i] % num_parts_in_each_bin[i]
+        part_counter_in_each_bin[i] += 1
+        handles[(i,part)].write(">{0}\n{1}\n".format(r.name, r.sequence))
+        print >> sys.stderr, "putting {0} in {1}".format(len(r.sequence), handles[(i,part)].name)
     for h in handles.itervalues(): h.close()
-    names = [handles[i].name for i in xrange(len(bins)-1)]
-#    return names
+
+    names = []
+    for i in xrange(len(bins)-1):
+        for part in xrange(num_parts_in_each_bin[i]):
+            names.append(handles[(i,part)].name)
     return filter(lambda x: os.stat(x).st_size > 0, names)
 
 def combine_quiver_results(split_dirs, output_dir, hq_filename, lq_filename):
@@ -169,6 +193,7 @@ def tofu_wrap_main():
     parser.add_argument("--bin_size_kb", default=1, type=int, help="Bin size by kb (default: 1)")
     parser.add_argument("--bin_manual", default=None, help="Bin manual (ex: (1,2,3,5)), overwrites bin_size_kb")
     parser.add_argument("--bin_by_primer", default=False, action="store_true", help="Instead of binning by size, bin by primer (overwrites --bin_size_kb and --bin_manual)")
+    parser.add_argument("--max_base_limit_MB", default=600, type=int, help="Maximum number of bases per partitioned bin, in MB (default: 600)")
     parser.add_argument("--gmap_name", default="hg19", help="GMAP DB name (default: hg19)")
     parser.add_argument("--gmap_db", default="/home/UNIXHOME/etseng/share/gmap_db_new/", help="GMAP DB location (default: /home/UNIXHOME/etseng/share/gmap_db_new/)")
     args = parser.parse_args()
@@ -198,7 +223,7 @@ def tofu_wrap_main():
         split_files = sep_flnc_by_primer(args.flnc_fa, args.root_dir)
     else:
         bin_manual = eval(args.bin_manual) if args.bin_manual is not None else None
-        split_files = sep_flnc_by_size(args.flnc_fa, args.root_dir, bin_size_kb=args.bin_size_kb, bin_manual=bin_manual)
+        split_files = sep_flnc_by_size(args.flnc_fa, args.root_dir, bin_size_kb=args.bin_size_kb, bin_manual=bin_manual, max_base_limit_MB=args.max_base_limit_MB)
     print >> sys.stderr, "split input {0} into {1} bins".format(args.flnc_fa, len(split_files))
 
     # (2) if fasta_fofn already is there, use it; otherwise make it first
