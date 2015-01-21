@@ -4,6 +4,7 @@ from cPickle import *
 from pbcore.io.FastaIO import FastaReader
 import pbtools.pbtranscript.ice.ProbModel as pm
 import pbtools.pbtranscript.ice.IceIterative as ice
+from pbtools.pbtranscript.ice.IceUtils import ice_fa2fq
 
 def ensure_pickle_goodness(pickle_filename, root_dir, fasta_files_to_add=None):
     """
@@ -43,7 +44,9 @@ def pickup_icec_job(pickle_filename, ccs_fofn, flnc_filename, fasta_files_to_add
     icec_obj, icec_pickle_filename = ensure_pickle_goodness(pickle_filename, root_dir, fasta_files_to_add)
     make_current_fasta(icec_obj, flnc_filename, root_dir)
     print >> sys.stderr, "Reading QV information...."
-    probqv = pm.ProbFromQV(ccs_fofn, os.path.join(root_dir,'current.fasta'))
+    # first need to convert to fastq
+    ice_fa2fq('current.fasta', ccs_fofn, 'current.fastq')
+    probqv = pm.ProbFromFastq(os.path.join(root_dir,'current.fastq'))
     icec = ice.IceIterative.from_pickle(icec_pickle_filename, probqv)
     # first must RE-RUN gcon to get all the proper refs
     icec.changes = set()

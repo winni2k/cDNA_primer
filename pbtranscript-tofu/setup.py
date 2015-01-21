@@ -6,7 +6,7 @@ import numpy as np
 
 
 __author__ = "jdrake|etseng|yli@pacificbiosciences.com"
-version = "0.3.tofu"
+version = "0.3.tofu.20150120"
 
 if 'setuptools.extension' in sys.modules:
     m = sys.modules['setuptools.extension']
@@ -39,6 +39,7 @@ setup(
     include_dirs = [np.get_include()],
     scripts=['pbtools/pbtranscript/pbtranscript.py',
              'pbtools/pbtranscript/collapse_isoforms_by_sam.py',
+             'pbtools/pbtranscript/fusion_finder.py',
              'pbtools/pbtranscript/tofu_wrap.py',
              'pbtools/pbtranscript/ice_partial.py',
              'pbtools/pbtranscript/ice_pbdagcon.py',
@@ -67,6 +68,7 @@ setup(
     zip_safe=False,
     install_requires=[
         'pbcore >= 0.6.3',
+        'bx-python'
         ]
     )
 

@@ -440,7 +440,7 @@ def convert_fofn_to_fasta(fofn_filename, out_filename, fasta_out_dir,
         pool.append(p)
 
     for in_fn in in_fns:
-        print >> sys.stderr, "DEBUG: converting h5 file:", in_fn
+        #print >> sys.stderr, "DEBUG: converting h5 file:", in_fn
         logging.debug("converting h5 file: {f}.".format(f=in_fn))
         if not (in_fn.endswith('.bax.h5') or in_fn.endswith('.bas.h5')):
             raise ValueError("fofn file {fofn} ".format(fofn=fofn_filename) +
@@ -476,9 +476,9 @@ def convert_fofn_to_fasta(fofn_filename, out_filename, fasta_out_dir,
     # starting & joining pool worakers
     for p in pool:
         p.start()
-        print >> sys.stderr, "Starting worker", p.name
+        #print >> sys.stderr, "Starting worker", p.name
     for p in pool:
-        print >> sys.stderr, "Waiting join", p.name
+        #print >> sys.stderr, "Waiting join", p.name
         p.join()
 
     write_files_to_fofn(out_fns, out_filename)

@@ -224,7 +224,7 @@ def output_read_count_nFL(cid_info, pickle_prefix_list, output_filename, output_
     f.close()
 
 
-def make_abundance_file(read_count_filename, output_filename, given_total=None, restricted_movies=None):
+def make_abundance_file(read_count_filename, output_filename, given_total=None, restricted_movies=None, write_header_comments=True):
     """
     If given_total is not None, use it instead of the total count based on <read_count_filename>
     given_total should be dict of {fl, nfl, nfl_amb}
@@ -274,13 +274,32 @@ def make_abundance_file(read_count_filename, output_filename, given_total=None, 
         use_total_nfl_amb = len(total_ids['fl']) + len(total_ids['nfl']) + len(total_ids['nfl_amb'])
 
     f = open(output_filename,'w')
-    f.write("pbid\tcount_fl\tcount_nfl\tcount_nfl_amb\tabundance_fl\tabundance_nfl\tabundance_nfl_amb\n")
-    for k,v in tally.iteritems():
+    if write_header_comments:
+        f.write("#\n")
+        f.write("# -----------------\n")
+        f.write("# Field explanation\n")
+        f.write("# -----------------\n")
+        f.write("# count_fl: Number of associated FL reads\n")
+        f.write("# count_nfl: Number of associated FL + unique nFL reads\n")
+        f.write("# count_nfl_amb: Number of associated FL + unique nFL + weighted ambiguous nFL reads\n")
+        f.write("# norm_fl: count_fl / total number of FL reads\n")
+        f.write("# norm_nfl: count_nfl / total number of FL + unique nFL reads\n")
+        f.write("# norm_nfl_amb: count_nfl_amb / total number of all reads\n")
+        f.write("# Total Number of FL reads: {0}\n".format(use_total_fl))
+        f.write("# Total Number of FL + unique nFL reads: {0}\n".format(use_total_nfl))
+        f.write("# Total Number of all reads: {0}\n".format(use_total_nfl_amb))
+        f.write("#\n")
+    f.write("pbid\tcount_fl\tcount_nfl\tcount_nfl_amb\tnorm_fl\tnorm_nfl\tnorm_nfl_amb\n")
+
+    keys = tally.keys()
+    keys.sort(key=lambda x: map(int, x.split('.')[1:])) # sort by PB.1, PB.2....
+    for k in keys:
+        v = tally[k]
         a = v['fl']
         b = a + v['nfl']
         c = b + v['nfl_amb']
         f.write("{0}\t{1}\t{2}\t{3}\t".format(k, a, b, c))
-        f.write("{0}\t{1}\t{2}\n".format(a*1./use_total_fl, b*1./use_total_nfl, c*1./use_total_nfl_amb))
+        f.write("{0:.4e}\t{1:.4e}\t{2:.4e}\n".format(a*1./use_total_fl, b*1./use_total_nfl, c*1./use_total_nfl_amb))
     f.close()
 
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-import os, sys, argparse, subprocess
+import os, sys, argparse, subprocess, binascii, time
+from cPickle import *
 from pbcore.io.FastaIO import FastaReader
 from pbcore.io.FastqIO import FastqReader, FastqWriter
 from pbtools.pbtranscript.Cluster import Cluster
@@ -117,7 +118,7 @@ def sep_flnc_by_size(flnc_filename, root_dir, bin_size_kb=1, bin_manual=None, ma
             names.append(handles[(i,part)].name)
     return filter(lambda x: os.stat(x).st_size > 0, names)
 
-def combine_quiver_results(split_dirs, output_dir, hq_filename, lq_filename):
+def combine_quiver_results(split_dirs, output_dir, hq_filename, lq_filename, tofu_prefix=''):
     """
     For each size bin result, ex: clusterOut/0to2k/all.quiveredXXX.fastq
     combine it together, remember to add a prefix (ex: i0|c12, i1|c13/....)
@@ -130,20 +131,19 @@ def combine_quiver_results(split_dirs, output_dir, hq_filename, lq_filename):
         file_hq = os.path.join(d, hq_filename) #'all_quivered_hq.100_30_0.99.fastq')
         file_lq = os.path.join(d, lq_filename) #'all_quivered_lq.fastq')
         print >> sys.stderr, "Adding prefix i{0}| to {1},{2}...".format(i, file_hq, file_lq)
-        prefix_dict_hq["i{0}HQ".format(i)] = d
-        prefix_dict_lq["i{0}LQ".format(i)] = d
+        prefix_dict_hq["i{i}HQ_{p}".format(i=i,p=tofu_prefix)] = os.path.abspath(d)
+        prefix_dict_lq["i{i}LQ_{p}".format(i=i,p=tofu_prefix)] = os.path.abspath(d)
         for r in FastqReader(file_hq):
-            _name_ = "i{0}HQ|{1}".format(i, r.name)
+            _name_ = "i{i}HQ_{p}|{n}".format(p=tofu_prefix, i=i, n=r.name)
             fout_hq.writeRecord(_name_, r.sequence, r.quality)
         for r in FastqReader(file_lq):
-            _name_ = "i{0}LQ|{1}".format(i, r.name)
+            _name_ = "i{i}LQ_{p}|{n}".format(p=tofu_prefix, i=i, n=r.name)
             fout_lq.writeRecord(_name_, r.sequence, r.quality)
     fout_hq.close()
     fout_lq.close()
     print >> sys.stderr, "HQ quivered output combined to:", fout_hq.file.name
     print >> sys.stderr, "LQ quivered output combined to:", fout_lq.file.name
     return fout_hq.file.name,fout_lq.file.name,prefix_dict_hq,prefix_dict_lq
-
 
 def run_collapse_sam(fastq_filename, gmap_db_dir, gmap_db_name, cpus=24):
     """
@@ -196,8 +196,31 @@ def tofu_wrap_main():
     parser.add_argument("--max_base_limit_MB", default=600, type=int, help="Maximum number of bases per partitioned bin, in MB (default: 600)")
     parser.add_argument("--gmap_name", default="hg19", help="GMAP DB name (default: hg19)")
     parser.add_argument("--gmap_db", default="/home/UNIXHOME/etseng/share/gmap_db_new/", help="GMAP DB location (default: /home/UNIXHOME/etseng/share/gmap_db_new/)")
+    parser.add_argument("--output_seqid_prefix", type=str, default=None, help="Output seqid prefix. If not given, a random ID is generated")
+    parser.add_argument("--mem_debug", default=False, action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
-    print args
+
+    # DEBUG
+    if args.mem_debug:
+        from memory_profiler import memory_usage
+    
+    # #################################################################
+    # SANITY CHECKS
+    if not args.quiver:
+        print >> sys.stderr, "--quiver must be turned on for tofu_wrap. Quit."
+        sys.exit(-1)
+    if args.nfl_fa is None:
+        print >> sys.stderr, "--nfl_fa must be provided for tofu_wrap. Quit."
+        sys.exit(-1)
+    if not os.path.exists(args.gmap_db):
+        print >> sys.stderr, "GMAP DB location not valid: {0}. Quit.".format(args.gmap_db)
+        sys.exit(-1)
+    if not os.path.exists(os.path.join(args.gmap_db, args.gmap_name)):
+        print >> sys.stderr, "GMAP name not valid: {0}. Quit.".format(args.gmap_name)
+        sys.exit(-1)
+    # #################################################################
+
+    tofu_prefix = binascii.b2a_hex(os.urandom(3)) if args.output_seqid_prefix is None else output_seqid_prefix
 
     ice_opts = IceOptions(cDNA_size=args.cDNA_size,
             quiver=args.quiver)
@@ -227,7 +250,7 @@ def tofu_wrap_main():
     print >> sys.stderr, "split input {0} into {1} bins".format(args.flnc_fa, len(split_files))
 
     # (2) if fasta_fofn already is there, use it; otherwise make it first
-    if args.fasta_fofn is None:
+    if args.quiver and args.fasta_fofn is None:
         print >> sys.stderr, "Making fasta_fofn now"
         nfl_dir = os.path.abspath(os.path.join(args.root_dir, "fasta_fofn_files"))
         if not os.path.exists(nfl_dir):
@@ -259,6 +282,7 @@ def tofu_wrap_main():
             print >> sys.stderr, "{0} already exists. SKIP!".format(hq_quiver)
             continue
         print >> sys.stderr, "running ICE/Quiver on", cur_dir
+        start_t = time.time()
         obj = Cluster(root_dir=cur_dir,
                 flnc_fa=cur_file,
                 nfl_fa=args.nfl_fa,
@@ -272,20 +296,33 @@ def tofu_wrap_main():
                 report_fn=args.report_fn,
                 summary_fn=args.summary_fn,
                 nfl_reads_per_split=args.nfl_reads_per_split)
-        obj.run()
+        
+        # DEBUG
+        if args.mem_debug: 
+            mem_usage = memory_usage(obj.run, interval=60)
+            end_t = time.time()
+            with open('mem_debug.log', 'a') as f:
+                f.write("Running ICE/Quiver on {0} took {1} secs.\n".format(cur_dir, end_t-start_t))
+                f.write("Maximum memory usage: {0}\n".format(max(mem_usage)))
+                f.write("Memory usage: {0}\n".format(mem_usage))
+        else:
+            obj.run()
 
     combined_dir = os.path.join(args.root_dir, 'combined')
     if not os.path.exists(combined_dir):
         os.makedirs(combined_dir)
     # (4) combine quivered HQ/LQ results
     hq_filename, lq_filename, hq_pre_dict, lq_pre_dict = \
-            combine_quiver_results(split_dirs, combined_dir, quiver_hq_filename, quiver_lq_filename)
+            combine_quiver_results(split_dirs, combined_dir, quiver_hq_filename, quiver_lq_filename,\
+            tofu_prefix)
+    with open(os.path.join(args.root_dir, 'combined', 'combined.hq_lq_pre_dict.pickle'), 'w') as f:
+        dump({'HQ': hq_pre_dict, 'LQ': lq_pre_dict}, f)
     # (5) collapse quivered HQ results
     collapse_prefix_hq = run_collapse_sam(hq_filename, args.gmap_db, args.gmap_name, cpus=args.blasr_nproc)
     # (6) make abundance 
     get_abundance(collapse_prefix_hq, hq_pre_dict, collapse_prefix_hq)
     # Now do it for LQ (turned OFF for now)
-    #collapse_prefix_lq = run_collapse_sam(lq_filename, '/home/UNIXHOME/etseng/share/gmap_db_new/', 'hg19', 24)
+    #collapse_prefix_lq = run_collapse_sam(lq_filename, args.gmap_db, args.gmap_name, cpus=args.blasr_nproc)
     #get_abundance(collapse_prefix_lq, lq_pre_dict, collapse_prefix_lq)
 
 if __name__ == "__main__":

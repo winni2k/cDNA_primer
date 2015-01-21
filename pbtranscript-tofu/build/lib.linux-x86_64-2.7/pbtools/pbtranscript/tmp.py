@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import os, sys, argparse, subprocess, binascii, time
+import os, sys, argparse, subprocess, binascii
 from cPickle import *
 from pbcore.io.FastaIO import FastaReader
 from pbcore.io.FastqIO import FastqReader, FastqWriter
@@ -10,7 +10,6 @@ from pbtools.pbtranscript.PBTranscriptOptions import add_cluster_arguments
 from pbtools.pbtranscript.ice.IceUtils import convert_fofn_to_fasta
 from pbtools.pbtranscript.counting import get_read_count_from_collapsed as sp
 from bisect import bisect_right
-from collections import defaultdict
 
 def sep_flnc_by_primer(flnc_filename, root_dir, output_filename='isoseq_flnc.fasta'):
     """
@@ -46,25 +45,20 @@ def sep_flnc_by_primer(flnc_filename, root_dir, output_filename='isoseq_flnc.fas
     return [handles[x] for x in primers]
 
 
-def sep_flnc_by_size(flnc_filename, root_dir, bin_size_kb=1, bin_manual=None, max_base_limit_MB=600, output_filename='isoseq_flnc.fasta'):
+def sep_flnc_by_size(flnc_filename, root_dir, bin_size_kb=1, bin_manual=None, output_filename='isoseq_flnc.fasta'):
     """
     Separate flnc fasta into different size bins
     ex: make <root_dir>/0to2k/isoseq_flnc.fasta ... etc ...
 
     If <bin_manual> (ex: (0, 2, 4, 12)) is given, <bin_size_kb> is ignored.
-
-    If max_base_limit_MB is not None, it caps the per-partition # of bases (in Mb)
-    So could have 0to1k_part1, 0to2k_part2...etc...
     """
     # first check min - max size range
     min_size = 0
     max_size = 0
-    base_in_each_size = defaultdict(lambda: 0) # size(in kb)--> number of bases
     for r in FastaReader(flnc_filename):
         seqlen = len(r.sequence)
         min_size = min(min_size, seqlen)
         max_size = max(max_size, seqlen)
-        base_in_each_size[seqlen/1000] += len(r.sequence)
     
     min_size_kb = min_size/1000
     max_size_kb = max_size/1000 + (1 if max_size%1000 > 1 else 0)
@@ -79,43 +73,24 @@ def sep_flnc_by_size(flnc_filename, root_dir, bin_size_kb=1, bin_manual=None, ma
 
     print >> sys.stderr, bins
 
-    max_bin = len(bins)-1
-    # for each bin, see if further partitioning is needed
-    base_in_each_bin = defaultdict(lambda: 0)
-    num_parts_in_each_bin = defaultdict(lambda: 1)
-    part_counter_in_each_bin = defaultdict(lambda: 0)
-    if max_base_limit_MB is not None:
-        for kb_size, num_bases in base_in_each_size.iteritems():
-            i = min(max_bin, max(0, bisect_right(bins, kb_size)-1))
-            base_in_each_bin[i] += num_bases
-        for bin_i, num_bases in base_in_each_bin.iteritems():
-            num_parts_in_each_bin[bin_i] = int((num_bases*1. / 10**6) / max_base_limit_MB) + \
-                    (1 if (num_bases*1. / 10**6) % max_base_limit_MB > 0 else 0)
-
     handles = {}
     for i in xrange(len(bins)-1):
-        for part in xrange(num_parts_in_each_bin[i]):
-            dirname = os.path.join(root_dir, "{0}to{1}kb_part{2}".format(bins[i], bins[i+1], part))
-            if os.path.exists(dirname):
-                print >> sys.stderr, "WARNING: {0} already exists.".format(dirname)
-            else:
-                os.makedirs(dirname)
-            handles[(i,part)] = open(os.path.join(dirname, output_filename), 'w')
+        dirname = os.path.join(root_dir, "{0}to{1}kb".format(bins[i], bins[i+1]))
+        if os.path.exists(dirname):
+            print >> sys.stderr, "WARNING: {0} already exists.".format(dirname)
+        else:
+            os.makedirs(dirname)
+        handles[i] = open(os.path.join(dirname, output_filename), 'w')
 
-
+    max_bin = len(bins)-1
     for r in FastaReader(flnc_filename):
         kb_size = len(r.sequence)/1000
         i = min(max_bin, max(0, bisect_right(bins, kb_size)-1))
-        part = part_counter_in_each_bin[i] % num_parts_in_each_bin[i]
-        part_counter_in_each_bin[i] += 1
-        handles[(i,part)].write(">{0}\n{1}\n".format(r.name, r.sequence))
-        print >> sys.stderr, "putting {0} in {1}".format(len(r.sequence), handles[(i,part)].name)
+        handles[i].write(">{0}\n{1}\n".format(r.name, r.sequence))
+        print >> sys.stderr, "putting {0} in {1}".format(len(r.sequence), handles[i].name)
     for h in handles.itervalues(): h.close()
-
-    names = []
-    for i in xrange(len(bins)-1):
-        for part in xrange(num_parts_in_each_bin[i]):
-            names.append(handles[(i,part)].name)
+    names = [handles[i].name for i in xrange(len(bins)-1)]
+#    return names
     return filter(lambda x: os.stat(x).st_size > 0, names)
 
 def combine_quiver_results(split_dirs, output_dir, hq_filename, lq_filename, tofu_prefix=''):
@@ -131,19 +106,20 @@ def combine_quiver_results(split_dirs, output_dir, hq_filename, lq_filename, tof
         file_hq = os.path.join(d, hq_filename) #'all_quivered_hq.100_30_0.99.fastq')
         file_lq = os.path.join(d, lq_filename) #'all_quivered_lq.fastq')
         print >> sys.stderr, "Adding prefix i{0}| to {1},{2}...".format(i, file_hq, file_lq)
-        prefix_dict_hq["i{i}HQ_{p}".format(i=i,p=tofu_prefix)] = os.path.abspath(d)
-        prefix_dict_lq["i{i}LQ_{p}".format(i=i,p=tofu_prefix)] = os.path.abspath(d)
+        prefix_dict_hq["i{0}HQ".format(i)] = d
+        prefix_dict_lq["i{0}LQ".format(i)] = d
         for r in FastqReader(file_hq):
-            _name_ = "i{i}HQ_{p}|{n}".format(p=tofu_prefix, i=i, n=r.name)
+            _name_ = "i{i}HQ{p}|{n}".format(p=tofu_prefix, i=i, n=r.name)
             fout_hq.writeRecord(_name_, r.sequence, r.quality)
         for r in FastqReader(file_lq):
-            _name_ = "i{i}LQ_{p}|{n}".format(p=tofu_prefix, i=i, n=r.name)
+            _name_ = "i{i}LQ{p}|{n}".format(p=tofu_prefix, i=i, n=r.name)
             fout_lq.writeRecord(_name_, r.sequence, r.quality)
     fout_hq.close()
     fout_lq.close()
     print >> sys.stderr, "HQ quivered output combined to:", fout_hq.file.name
     print >> sys.stderr, "LQ quivered output combined to:", fout_lq.file.name
     return fout_hq.file.name,fout_lq.file.name,prefix_dict_hq,prefix_dict_lq
+
 
 def run_collapse_sam(fastq_filename, gmap_db_dir, gmap_db_name, cpus=24):
     """
@@ -193,17 +169,11 @@ def tofu_wrap_main():
     parser.add_argument("--bin_size_kb", default=1, type=int, help="Bin size by kb (default: 1)")
     parser.add_argument("--bin_manual", default=None, help="Bin manual (ex: (1,2,3,5)), overwrites bin_size_kb")
     parser.add_argument("--bin_by_primer", default=False, action="store_true", help="Instead of binning by size, bin by primer (overwrites --bin_size_kb and --bin_manual)")
-    parser.add_argument("--max_base_limit_MB", default=600, type=int, help="Maximum number of bases per partitioned bin, in MB (default: 600)")
     parser.add_argument("--gmap_name", default="hg19", help="GMAP DB name (default: hg19)")
     parser.add_argument("--gmap_db", default="/home/UNIXHOME/etseng/share/gmap_db_new/", help="GMAP DB location (default: /home/UNIXHOME/etseng/share/gmap_db_new/)")
     parser.add_argument("--output_seqid_prefix", type=str, default=None, help="Output seqid prefix. If not given, a random ID is generated")
-    parser.add_argument("--mem_debug", default=False, action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
 
-    # DEBUG
-    if args.mem_debug:
-        from memory_profiler import memory_usage
-    
     # #################################################################
     # SANITY CHECKS
     if not args.quiver:
@@ -219,6 +189,7 @@ def tofu_wrap_main():
         print >> sys.stderr, "GMAP name not valid: {0}. Quit.".format(args.gmap_name)
         sys.exit(-1)
     # #################################################################
+
 
     tofu_prefix = binascii.b2a_hex(os.urandom(3)) if args.output_seqid_prefix is None else output_seqid_prefix
 
@@ -246,7 +217,7 @@ def tofu_wrap_main():
         split_files = sep_flnc_by_primer(args.flnc_fa, args.root_dir)
     else:
         bin_manual = eval(args.bin_manual) if args.bin_manual is not None else None
-        split_files = sep_flnc_by_size(args.flnc_fa, args.root_dir, bin_size_kb=args.bin_size_kb, bin_manual=bin_manual, max_base_limit_MB=args.max_base_limit_MB)
+        split_files = sep_flnc_by_size(args.flnc_fa, args.root_dir, bin_size_kb=args.bin_size_kb, bin_manual=bin_manual)
     print >> sys.stderr, "split input {0} into {1} bins".format(args.flnc_fa, len(split_files))
 
     # (2) if fasta_fofn already is there, use it; otherwise make it first
@@ -282,7 +253,6 @@ def tofu_wrap_main():
             print >> sys.stderr, "{0} already exists. SKIP!".format(hq_quiver)
             continue
         print >> sys.stderr, "running ICE/Quiver on", cur_dir
-        start_t = time.time()
         obj = Cluster(root_dir=cur_dir,
                 flnc_fa=cur_file,
                 nfl_fa=args.nfl_fa,
@@ -296,33 +266,23 @@ def tofu_wrap_main():
                 report_fn=args.report_fn,
                 summary_fn=args.summary_fn,
                 nfl_reads_per_split=args.nfl_reads_per_split)
-        
-        # DEBUG
-        if args.mem_debug: 
-            mem_usage = memory_usage(obj.run, interval=60)
-            end_t = time.time()
-            with open('mem_debug.log', 'a') as f:
-                f.write("Running ICE/Quiver on {0} took {1} secs.\n".format(cur_dir, end_t-start_t))
-                f.write("Maximum memory usage: {0}\n".format(max(mem_usage)))
-                f.write("Memory usage: {0}\n".format(mem_usage))
-        else:
-            obj.run()
+        obj.run()
 
     combined_dir = os.path.join(args.root_dir, 'combined')
     if not os.path.exists(combined_dir):
         os.makedirs(combined_dir)
     # (4) combine quivered HQ/LQ results
     hq_filename, lq_filename, hq_pre_dict, lq_pre_dict = \
-            combine_quiver_results(split_dirs, combined_dir, quiver_hq_filename, quiver_lq_filename,\
-            tofu_prefix)
-    with open(os.path.join(args.root_dir, 'combined', 'combined.hq_lq_pre_dict.pickle'), 'w') as f:
+            combine_quiver_results(split_dirs, combined_dir, quiver_hq_filename, quiver_lq_filename, \
+            prefix=tofu_prefix)
+    with open('combined.hq_lq_pre_dict.pickle', 'w') as f:
         dump({'HQ': hq_pre_dict, 'LQ': lq_pre_dict}, f)
     # (5) collapse quivered HQ results
     collapse_prefix_hq = run_collapse_sam(hq_filename, args.gmap_db, args.gmap_name, cpus=args.blasr_nproc)
     # (6) make abundance 
     get_abundance(collapse_prefix_hq, hq_pre_dict, collapse_prefix_hq)
     # Now do it for LQ (turned OFF for now)
-    #collapse_prefix_lq = run_collapse_sam(lq_filename, args.gmap_db, args.gmap_name, cpus=args.blasr_nproc)
+    #collapse_prefix_lq = run_collapse_sam(lq_filename, '/home/UNIXHOME/etseng/share/gmap_db_new/', 'hg19', 24)
     #get_abundance(collapse_prefix_lq, lq_pre_dict, collapse_prefix_lq)
 
 if __name__ == "__main__":

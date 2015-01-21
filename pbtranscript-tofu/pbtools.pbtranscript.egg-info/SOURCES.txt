@@ -19,6 +19,7 @@ pbtools/pbtranscript/Utils.py
 pbtools/pbtranscript/__init__.py
 pbtools/pbtranscript/cleanup_ice.py
 pbtools/pbtranscript/collapse_isoforms_by_sam.py
+pbtools/pbtranscript/fusion_finder.py
 pbtools/pbtranscript/ice_fa2fq.py
 pbtools/pbtranscript/ice_partial.py
 pbtools/pbtranscript/ice_pbdagcon.py
@@ -26,12 +27,14 @@ pbtools/pbtranscript/ice_quiver.py
 pbtools/pbtranscript/pbdagcon_wrapper.py
 pbtools/pbtranscript/pbtranscript.py
 pbtools/pbtranscript/picking_up_ice.py
+pbtools/pbtranscript/tmp.py
 pbtools/pbtranscript/tofu_wrap.py
 pbtools/pbtranscript/branch/__init__.py
 pbtools/pbtranscript/branch/branch_simple2.py
 pbtools/pbtranscript/branch/C/c_branch.c
 pbtools/pbtranscript/branch/C/modified_bx_intervals/intersection_unique.c
 pbtools/pbtranscript/counting/__init__.py
+pbtools/pbtranscript/counting/compare_junctions.py
 pbtools/pbtranscript/counting/get_read_count_from_collapsed.py
 pbtools/pbtranscript/data/PBMATRIX.txt
 pbtools/pbtranscript/data/gcon_in.fa

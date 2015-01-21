@@ -1,4 +1,4 @@
-#!/home/UNIXHOME/etseng/.VENVdev/bin/python
+#!/home/UNIXHOME/etseng/.VENV_TEST/bin/python
 __author__ = 'etseng@pacificbiosciences.com'
 #################################################################################$$
 # Copyright (c) 2011-2014, Pacific Biosciences of California, Inc.
@@ -37,6 +37,7 @@ __author__ = 'etseng@pacificbiosciences.com'
 # SUCH DAMAGE.
 #################################################################################$$
 import os, sys
+from pbtools.pbtranscript.Utils import check_ids_unique
 from pbtools.pbtranscript.io.SeqReaders import LazyFastaReader, LazyFastqReader
 from pbtools.pbtranscript.branch import branch_simple2
 from pbcore.io.FastaIO import FastaWriter
@@ -102,6 +103,9 @@ def main(args):
     if not os.path.exists(args.sam):
         print >> sys.stderr, "SAM file {0} does not exist. Abort.".format(args.sam)
         sys.exit(-1)
+
+    # check for duplicate IDs
+    check_ids_unique(args.input, is_fq=args.fq)
     
     ignored_fout = open(args.prefix + '.ignored_ids.txt', 'w')
     f_gff = open(args.prefix + '.collapsed.gff', 'w')

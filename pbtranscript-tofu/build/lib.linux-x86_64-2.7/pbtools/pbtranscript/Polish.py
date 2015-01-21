@@ -187,7 +187,7 @@ def add_ice_polish_arguments(parser):
     parser = add_nfl_fa_argument(parser, positional=True)
     parser = add_fofn_arguments(parser, ccs_fofn=True, bas_fofn=True, fasta_fofn=True)
     parser = add_ice_post_quiver_hq_lq_arguments(parser)
-    parser = add_sge_arguments(parser, quiver_nproc=True)
+    parser = add_sge_arguments(parser, quiver_nproc=True, blasr_nproc=True)
     return parser
 
 

@@ -97,6 +97,14 @@ class ProbFromQV:
             newids = [r.name.split()[0] for r in reader]
         self.add_ids_from_fasta(newids)
 
+    def add_seqs_from_fastq(self, fastq_filename, smooth=True):
+        """Add sequence ids from a fastq file."""
+        self.qver.precache_fastq(fastq_filename)
+        newids = [r.name.split()[0] for r in FastqReader(fastq_filename)]
+        self.seqids += newids
+        self.qver.presmooth(newids, self.window_size)
+        #self.qver.remove_unsmoothed()
+
     def add_ids_from_fasta(self, newids):
         """Add sequence ids."""
         self.qver.precache(newids)

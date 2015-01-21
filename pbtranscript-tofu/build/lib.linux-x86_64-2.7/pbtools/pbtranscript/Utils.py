@@ -6,6 +6,23 @@ import logging
 import sys
 from time import sleep
 from pbcore.util.Process import backticks
+from pbcore.io.FastaIO import FastaReader
+from pbcore.io.FastqIO import FastqReader
+
+def check_ids_unique(fa_or_fq_filename, is_fq=False):
+    """
+    Confirm that a FASTA/FASTQ file has all unique IDs
+    (used probably by collapse or fusion finding script)
+    """
+    if is_fq:
+        reader = FastqReader(fa_or_fq_filename)
+    else:
+        reader = FastaReader(fa_or_fq_filename)
+    seen = set()
+    for r in reader:
+        if r.id in seen:
+            raise Exception, "Duplicate id {0} detected. Abort!".format(r.id)
+        seen.add(r.id)
 
 
 def revcmp(seq):

@@ -173,7 +173,7 @@ class BranchSimple:
         return result
 
 
-    def process_records(self, records, allow_extra_5_exons, skip_5_exon_alt, f_good, f_bad, f_group, tolerate_end=100):
+    def process_records(self, records, allow_extra_5_exons, skip_5_exon_alt, f_good, f_bad, f_group, tolerate_end=100, starting_isoform_index=0, gene_prefix='PB'):
         """
         Given a set of records
         (1) process them by running through parse_transfrag2contig
@@ -202,7 +202,7 @@ class BranchSimple:
 
         print >> sys.stderr, "merged {0} down to {1} transcripts".format(len(result), len(result_merged))
 
-        self.isoform_index = 0
+        self.isoform_index = starting_isoform_index
         # make the exon value --> interval dictionary
         a = []
 
@@ -215,18 +215,18 @@ class BranchSimple:
             self.isoform_index += 1
             segments = [node_d[x] for x in m.nonzero()[1]]
             f_group.write("PB.{i}.{j}\t{ids}\n".format(ids=ids, i=self.cuff_index, j=self.isoform_index))
-            f_out.write("{chr}\tPacBio\ttranscript\t{s}\t{e}\t.\t{strand}\t.\tgene_id \"PB.{i}\"; transcript_id \"PB.{i}.{j}\";\n".format(\
-                chr=self.chrom, s=segments[0].start+1, e=segments[-1].end, i=self.cuff_index, j=self.isoform_index, strand=self.strand))
+            f_out.write("{chr}\tPacBio\ttranscript\t{s}\t{e}\t.\t{strand}\t.\tgene_id \"{p}.{i}\"; transcript_id \"{p}.{i}.{j}\";\n".format(\
+                chr=self.chrom, s=segments[0].start+1, e=segments[-1].end, i=self.cuff_index, p=gene_prefix, j=self.isoform_index, strand=self.strand))
 
             i = 0
             j = 0
             for j in xrange(1, len(segments)):
                 if segments[j].start != segments[j-1].end:
-                    f_out.write("{chr}\tPacBio\texon\t{s}\t{e}\t.\t{strand}\t.\tgene_id \"PB.{i}\"; transcript_id \"PB.{i}.{j}\";\n".format(\
-                    chr=self.chrom, s=segments[i].start+1, e=segments[j-1].end, i=self.cuff_index, j=self.isoform_index, strand=self.strand))
+                    f_out.write("{chr}\tPacBio\texon\t{s}\t{e}\t.\t{strand}\t.\tgene_id \"{p}.{i}\"; transcript_id \"{p}.{i}.{j}\";\n".format(\
+                    chr=self.chrom, s=segments[i].start+1, e=segments[j-1].end, p=gene_prefix,i=self.cuff_index, j=self.isoform_index, strand=self.strand))
                     i = j
-            f_out.write("{chr}\tPacBio\texon\t{s}\t{e}\t.\t{strand}\t.\tgene_id \"PB.{i}\"; transcript_id \"PB.{i}.{j}\";\n".format(\
-                    chr=self.chrom, s=segments[i].start+1, e=segments[j].end, i=self.cuff_index, j=self.isoform_index, strand=self.strand))
+            f_out.write("{chr}\tPacBio\texon\t{s}\t{e}\t.\t{strand}\t.\tgene_id \"{p}.{i}\"; transcript_id \"{p}.{i}.{j}\";\n".format(\
+                    chr=self.chrom, s=segments[i].start+1, e=segments[j].end, p=gene_prefix, i=self.cuff_index, j=self.isoform_index, strand=self.strand))
 
         self.cuff_index += 1
 
