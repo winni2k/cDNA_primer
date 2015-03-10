@@ -26,7 +26,7 @@ def ensure_pickle_goodness(pickle_filename, root_dir, fasta_files_to_add=None):
         print >> sys.stderr, "Pickle {0} missing some key-values. Fixing it.".format(pickle_filename)
         a['root_dir'] = root_dir
         a['all_fasta_filename'] = a['all_fasta_fiilename']
-        a['qv_prob_threshold'] = 0.1
+        a['qv_prob_threshold'] = 0.03
         with open(pickle_filename + '.fixed', 'w') as f:
             dump(a, f)
         print >> sys.stderr, "Fixed pickle written to {0}.fixed".format(pickle_filename)

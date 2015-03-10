@@ -175,7 +175,7 @@ class HitItem(object):
 
 
 def blasr_against_ref(output_filename, is_FL, sID_starts_with_c,
-                      qver_get_func, qv_prob_threshold=.1,
+                      qver_get_func, qv_prob_threshold=.03,
                       ece_penalty=1, ece_min_len=20, same_strand_only=True):
     """
     Excluding criteria:

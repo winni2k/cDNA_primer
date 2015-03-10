@@ -39,7 +39,7 @@ class IceIterative(IceFiles):
                  ccs_fofn, root_dir,
                  ice_opts, sge_opts,
                  uc=None, probQV=None,
-                 refs=None, d=None, is_FL=True, qv_prob_threshold=.1, fastq_filename=None,
+                 refs=None, d=None, is_FL=True, qv_prob_threshold=.03, fastq_filename=None,
                  use_ccs_qv=False):
         """
         fasta_filename --- the current fasta filename containing
@@ -111,7 +111,11 @@ class IceIterative(IceFiles):
         self.changes = set()
 
         # size below which gcon must be re-run if changes were made
-        self.rerun_gcon_size = 20
+        # (Liz Note) changed from 20 down to 10 after running some DAGCon tests on 6-8 and 8-10k
+        self.rerun_gcon_size = 10
+        
+        # Max size for in.fa to DAGCon, can overwrite with write_all=True  in write_in_fasta()
+        self.dagcon_in_fa_subsample = 100
 
         self.is_FL = is_FL
 
@@ -701,16 +705,20 @@ class IceIterative(IceFiles):
                     self.removed_qids.add(qid)
         self.run_gcon_parallel(self.changes)
 
-    def write_in_fasta(self, cid):
+    def write_in_fasta(self, cid, write_all=False):
         """
         Write the ./tmp/<cid/10000 mod>/c<cid>/in.fa for cluster cid.
+        (Liz) unless write_all is True, only write the first <self.dagcon_in_fa_subsample> to save time
         """
         #in_filename = op.join('./tmp/', str(cid/10000), 'c'+str(cid), 'in.fa')
         in_filename = op.join(self.clusterInFa(cid))
+        seqids = self.uc[cid]
+        if not write_all:
+            seqids = random.sample(seqids, min(self.dagcon_in_fa_subsample, len(seqids)))
         with open(in_filename, 'w') as f:
-            for seqid in self.uc[cid]:
+            for seqid in seqids:
                 f.write(">{0}\n{1}\n".format(seqid,
-                                             self.seq_dict[seqid].sequence))
+                    self.seq_dict[seqid].sequence))
         return in_filename
 
     def add_seq_to_cluster(self):
@@ -1217,7 +1225,7 @@ class IceIterative(IceFiles):
             # out_prefix='output/tmp',
             self.add_new_batch(f)
             self.check_cluster_sanity()
-            for _i in xrange(5):
+            for _i in xrange(1):
                 self.run_for_new_batch()
                 sizes.append(len(self.uc))
             self.write_pickle(self.uptoPickleFN(f))
@@ -1243,7 +1251,7 @@ class IceIterative(IceFiles):
             self.changes = set()
             self.add_log("Writing pickle file: " + pickle_filename)
             self.write_pickle(pickle_filename)
-
+            
             self.add_log("Writing consensus file: " + consensus_filename)
             self.write_consensus(consensus_filename)
 
@@ -1299,9 +1307,9 @@ class IceIterative(IceFiles):
             self.add_log(msg)
             return None
         else:
-            msg = "Merging clusters {0} and {1}".format(r.qID, r.sID)
-            self.add_log(msg)
             k = self.make_new_cluster()
+            msg = "Merging clusters {0} and {1} --> {2}".format(r.qID, r.sID, k)
+            self.add_log(msg)
             self.uc[k] = self.uc[i] + self.uc[j]
             self.delete_cluster(i)
             self.delete_cluster(j)
@@ -1343,9 +1351,9 @@ class IceIterative(IceFiles):
         msg = "IceIterative run."
         self.add_log(msg, level=logging.INFO)
 
-        msg = "First five run of run_til_end()."
+        msg = "First one run of run_til_end()."
         self.add_log(msg, level=logging.INFO)
-        self.run_til_end(5)
+        self.run_til_end(1)
         sizes = [len(self.uc)]
 
         msg = "Adding new reads to constructed clusters."
@@ -1365,7 +1373,7 @@ class IceIterative(IceFiles):
         # is low.
         self.random_prob = 0.01
 
-        for _i in xrange(5):
+        for _i in xrange(1):
             self.add_log("run_for_new_batch iteration {n}".format(n=_i),
                          level=logging.INFO)
             self.run_for_new_batch()

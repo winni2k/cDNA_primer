@@ -57,10 +57,9 @@ pbtools/pbtranscript/ice/IceQuiverPostprocess.py
 pbtools/pbtranscript/ice/IceUtils.py
 pbtools/pbtranscript/ice/ProbModel.py
 pbtools/pbtranscript/ice/__init__.py
-pbtools/pbtranscript/ice/basQV_parallel.py
 pbtools/pbtranscript/ice/make_input_fasta_fofn.py
+pbtools/pbtranscript/ice/obs.basQV_parallel.py
 pbtools/pbtranscript/ice/pClique.py
-pbtools/pbtranscript/ice/C/ProbHandler.cpp
 pbtools/pbtranscript/ice/C/ProbModel.cpp
 pbtools/pbtranscript/ice/C/c_basQV.cpp
 pbtools/pbtranscript/ice/C/findECE.c

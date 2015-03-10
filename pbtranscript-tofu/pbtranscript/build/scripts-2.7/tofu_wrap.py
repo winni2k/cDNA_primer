@@ -1,4 +1,4 @@
-#!/home/UNIXHOME/etseng/.VENV_TEST/bin/python
+#!/home/UNIXHOME/etseng/.VENVdev/bin/python
 import os, sys, argparse, subprocess, binascii, time
 from cPickle import *
 from pbcore.io.FastaIO import FastaReader
