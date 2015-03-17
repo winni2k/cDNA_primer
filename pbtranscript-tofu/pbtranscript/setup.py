@@ -6,7 +6,7 @@ import numpy as np
 
 
 __author__ = "jdrake|etseng|yli@pacificbiosciences.com"
-version = "0.4.0"
+version = "0.4.1"
 
 if 'setuptools.extension' in sys.modules:
     m = sys.modules['setuptools.extension']
@@ -22,10 +22,10 @@ ext_modules = [Extension("pbtools.pbtranscript.findECE",
                     ["pbtools/pbtranscript/ice/C/ProbModel.cpp"], language="c++"),
                 Extension("pbtools.pbtranscript.BioReaders",
                          ["pbtools/pbtranscript/io/C/BioReaders.c"]),
+                Extension("pbtools.pbtranscript.modified_bx_intervals.intersection_unique",
+                    ["pbtools/pbtranscript/branch/C/modified_bx_intervals/intersection_unique.c"]),
                 Extension("pbtools.pbtranscript.c_branch", 
                          ["pbtools/pbtranscript/branch/C/c_branch.c"]), 
-                Extension("pbtools.pbtranscript.modified_bx_intervals.intersection_unique", 
-                         ["pbtools/pbtranscript/branch/C/modified_bx_intervals/intersection_unique.c"]),
               ]
 
 setup(

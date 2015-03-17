@@ -31,7 +31,10 @@ pbtools/pbtranscript/tmp.py
 pbtools/pbtranscript/tofu_wrap.py
 pbtools/pbtranscript/branch/__init__.py
 pbtools/pbtranscript/branch/branch_simple2.py
+pbtools/pbtranscript/branch/C/__init__.py
 pbtools/pbtranscript/branch/C/c_branch.c
+pbtools/pbtranscript/branch/C/setup2.py
+pbtools/pbtranscript/branch/C/modified_bx_intervals/__init__.py
 pbtools/pbtranscript/branch/C/modified_bx_intervals/intersection_unique.c
 pbtools/pbtranscript/counting/__init__.py
 pbtools/pbtranscript/counting/compare_junctions.py

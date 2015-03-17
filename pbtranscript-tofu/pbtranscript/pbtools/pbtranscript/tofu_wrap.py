@@ -145,7 +145,7 @@ def combine_quiver_results(split_dirs, output_dir, hq_filename, lq_filename, tof
     print >> sys.stderr, "LQ quivered output combined to:", fout_lq.file.name
     return fout_hq.file.name,fout_lq.file.name,prefix_dict_hq,prefix_dict_lq
 
-def run_collapse_sam(fastq_filename, gmap_db_dir, gmap_db_name, cpus=24):
+def run_collapse_sam(fastq_filename, gmap_db_dir, gmap_db_name, cpus=24, min_coverage=0.99, min_identity=0.85, dun_merge_5_shorter=False):
     """
     Wrapper for running collapse script
     (a) run GMAP
@@ -159,8 +159,13 @@ def run_collapse_sam(fastq_filename, gmap_db_dir, gmap_db_name, cpus=24):
     cmd = "sort -k 3,3 -k 4,4n {fq}.sam > {fq}.sorted.sam".format(fq=fastq_filename)
     print >> sys.stderr, "CMD:", cmd
     subprocess.check_call(cmd, shell=True) 
-    cmd = "collapse_isoforms_by_sam.py --input {fq} --fq -s {fq}.sorted.sam -o {fq}.5merge".format(\
+    cmd = "collapse_isoforms_by_sam.py --input {fq} --fq -s {fq}.sorted.sam -c {c} -i {i}".format(\
+            c=min_coverage, i=min_identity, 
             fq=fastq_filename)
+    if dun_merge_5_shorter:
+        cmd += " --dun-merge-5-shorter -o {fq}.no5merge".format(fq=fastq_filename)
+    else:
+        cmd += " -o {fq}.5merge".format(fq=fastq_filename)
     print >> sys.stderr, "CMD:", cmd
     subprocess.check_call(cmd, shell=True)
     return fastq_filename + '.5merge.collapsed'
