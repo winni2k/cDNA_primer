@@ -175,7 +175,7 @@ class HitItem(object):
 
 
 def blasr_against_ref(output_filename, is_FL, sID_starts_with_c,
-                      qver_get_func, qv_prob_threshold=.1,
+                      qver_get_func, qv_prob_threshold=.03,
                       ece_penalty=1, ece_min_len=20, same_strand_only=True):
     """
     Excluding criteria:
@@ -216,12 +216,12 @@ def blasr_against_ref(output_filename, is_FL, sID_starts_with_c,
                 yield HitItem(qID=r.qID, cID=cID)
                 continue
 
-            # full-length case: allow up to 100bp of 5' not aligned
-            # and 30bp of 3' not aligned
+            # full-length case: allow up to 200bp of 5' not aligned
+            # and 50bp of 3' not aligned
             # non-full-length case: not really tested...don't use
-            if is_FL and (r.sStart > 100 or r.qStart > 100 or
-                          (r.sLength - r.sEnd > 30) or
-                          (r.qLength - r.qEnd > 30)):
+            if is_FL and (r.sStart > 200 or r.qStart > 200 or
+                          (r.sLength - r.sEnd > 50) or
+                          (r.qLength - r.qEnd > 50)):
                 yield HitItem(qID=r.qID, cID=cID)
             else:
                 cigar_str, ece_arr = eval_blasr_alignment(

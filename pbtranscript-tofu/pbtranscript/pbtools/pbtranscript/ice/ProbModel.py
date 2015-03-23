@@ -14,7 +14,7 @@ class ProbFromQV:
     quality values.
     """
     def __init__(self, input_fofn, fasta_filename=None,
-            prob_threshold=.1, window_size=3):
+            prob_threshold=.03, window_size=5):
 
         self.qver = basQVcacher()
         self.input_fofn = input_fofn
@@ -108,7 +108,7 @@ class ProbFromFastq:
     Probability model constructed from Fastq files using a single QV for everything
     """
     def __init__(self, fastq_filename,
-            prob_threshold=.1, window_size=3):
+            prob_threshold=.03, window_size=5):
 
         self.qver = fastqQVcacher()
         self.fastq_filename = fastq_filename

@@ -3,6 +3,7 @@
 """Call quiver to polish consensus isoforms created by ICE."""
 
 import os.path as op
+import random
 import logging
 import shutil
 from cPickle import load
@@ -126,13 +127,19 @@ class IceQuiver(IceFiles):
         d --- MetaSubreadsFastaReader
         uc --- uc[k] returns fl ccs reads associated with cluster k
         partial_uc --- partial_uc[k] returns nfl ccs reads associated with cluster k
-
+        
+        (Liz) for Quiver, subsample down to max 100 (with uc having priority over partial_uc)
         """
         for k in cids:  # for each cluster k
 
             # $root_dir/tmp/?/c{k}/in.raw_with_partial.fa
             raw_fa = self.raw_fa_of_cluster(k)
 
+            in_seqids = uc[k]
+            if len(in_seqids) > 100:
+                in_seqids = random.sample(in_seqids, 100)
+            else:
+                in_seqids += random.sample(partial_uc[k], min(len(partial_uc[k]), 100 - len(in_seqids)))
             # write cluster k's associated raw subreads to raw_fa
             write_in_raw_fasta(input_fasta_d=d,
                                in_seqids=uc[k] + partial_uc[k],

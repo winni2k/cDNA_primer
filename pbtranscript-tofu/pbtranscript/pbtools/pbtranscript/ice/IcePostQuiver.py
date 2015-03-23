@@ -24,10 +24,10 @@ class IcePostQuiver(IceFiles):
            * If quit_if_not_done is False, wait till quiver jobs are finished.
 
     """
-    # ignore first 100 bp on 5' end...
+    # ignore first 200 bp on 5' end...
     #   Quiver usually can't  call it very well + less coverage
-    qv_trim_5 = 100
-    qv_trim_3 = 30 # """ignore last 30 bp on the 3' end"""
+    qv_trim_5 = 200
+    qv_trim_3 = 50 # """ignore last 50 bp on the 3' end"""
     # total number of allowed expected base errors within
     # seq[qv_trim_5:seq_trim_3]
     qv_max_err = 10
