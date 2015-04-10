@@ -19,6 +19,7 @@ from pbtools.pbtranscript.ice.IceFiles import IceFiles
 from pbtools.pbtranscript.ice.IceAllPartials import IceAllPartials
 from pbtools.pbtranscript.ice.IceQuiver import IceQuiver
 from pbtools.pbtranscript.ice.IceQuiverPostprocess import IceQuiverPostprocess
+from pbtools.pbtranscript.icedalign.IceDalignUtils import DazzIDHandler, DalignerRunner
 
 
 class Polish(IceFiles):
@@ -78,23 +79,23 @@ class Polish(IceFiles):
             self.add_log(errMsg, level=logging.ERROR)
             raise ValueError(errMsg)
 
-    def get_sa_file(self):
-        """Return saffix array of final_consensus_fa."""
-        ret = True
-        if not op.exists(self.final_consensus_sa):
-            ret = build_sa(self.final_consensus_fa, self.final_consensus_sa)
-
-        if ret is True:
-            self.add_log("Successfully created a suffix array for {f} at {sa}.".
-                         format(f=self.final_consensus_fa,
-                                sa=self.final_consensus_sa))
-        else:
-            self.add_log("Failed to generate suffix array for {f}".format(
-                f=self.final_consensus_fa), level=logging.WARNING)
-        if op.exists(self.final_consensus_sa):
-            return self.final_consensus_sa
-        else:
-            return None
+    # def get_sa_file(self):
+    #     """Return saffix array of final_consensus_fa."""
+    #     ret = True
+    #     if not op.exists(self.final_consensus_sa):
+    #         ret = build_sa(self.final_consensus_fa, self.final_consensus_sa)
+    #
+    #     if ret is True:
+    #         self.add_log("Successfully created a suffix array for {f} at {sa}.".
+    #                      format(f=self.final_consensus_fa,
+    #                             sa=self.final_consensus_sa))
+    #     else:
+    #         self.add_log("Failed to generate suffix array for {f}".format(
+    #             f=self.final_consensus_fa), level=logging.WARNING)
+    #     if op.exists(self.final_consensus_sa):
+    #         return self.final_consensus_sa
+    #     else:
+    #         return None
 
     def run(self):
         """
@@ -111,9 +112,9 @@ class Polish(IceFiles):
         Save all low quality isoforms to lq_isoforms_fa|fq if they are not None
         """
         # Create final.consensus.fa.sa
-        self.add_log("Generating suffix array for {f}".format(
-                     f=self.final_consensus_sa), level=logging.INFO)
-        sa_file = self.get_sa_file()
+        #self.add_log("Generating suffix array for {f}".format(
+        #             f=self.final_consensus_sa), level=logging.INFO)
+        #sa_file = self.get_sa_file()
 
         # Create input.fasta.fofn from bas_fofn
         self.add_log("Creating fasta fofn from bas/bax.h5 fofn",
@@ -143,17 +144,24 @@ class Polish(IceFiles):
         msg = "Splitted files are: " + "\n".join(self._nfl_splitted_fas)
         self.add_log(msg, level=logging.INFO)
 
+        # Generating dazz DB for final.consensus.fasta
+        ref_obj = DazzIDHandler(self.final_consensus_fa, False)
+        DalignerRunner.make_db(ref_obj.dazz_filename)
+        msg = "Dazz DB made for: " + ref_obj.dazz_filename
+        self.add_log(msg, level=logging.INFO)
+
         # Process nfl reads in each splitted fasta.
         self.add_log("Initializing IceAllPartials.", level=logging.INFO)
-        sa_file = self.final_consensus_sa \
-            if op.exists(self.final_consensus_fa) else None
+        #sa_file = self.final_consensus_sa \
+        #    if op.exists(self.final_consensus_fa) else None
+
         self.icep = IceAllPartials(
             root_dir=self.root_dir,
             fasta_filenames=self._nfl_splitted_fas,
             ref_fasta=self.final_consensus_fa,
             out_pickle=self.nfl_all_pickle_fn,
             sge_opts=self.sge_opts,
-            sa_file=sa_file,
+            sa_file=None,  # since we are switching to daligner, just give it as None now; remove sa_file completely later when daligner is mature (ToDo)
             ccs_fofn=self.ccs_fofn)
         self.add_log("IceAllPartials log: {f}.".format(f=self.icep.log_fn),
                      level=logging.INFO)
@@ -217,7 +225,8 @@ class PolishRunner(PBToolRunner):
         sge_opts = SgeOptions(unique_id=args.unique_id,
                               use_sge=args.use_sge,
                               max_sge_jobs=args.max_sge_jobs,
-                              quiver_nproc=args.quiver_nproc)
+                              quiver_nproc=args.quiver_nproc,
+                              blasr_nproc=args.blasr_nproc)
         ipq_opts = IceQuiverHQLQOptions(
             hq_isoforms_fa=args.hq_isoforms_fa,
             hq_isoforms_fq=args.hq_isoforms_fq,

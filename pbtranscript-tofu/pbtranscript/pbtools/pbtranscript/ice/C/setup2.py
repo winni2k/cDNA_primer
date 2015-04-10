@@ -5,7 +5,8 @@ from Cython.Distutils import build_ext
 ext_modules = [Extension("c_basQV", ["c_basQV.pyx"], language="c++"), \
 #        Extension("c_Prob", ["ProbHandler.pyx"], language="c++"), \
         Extension("ProbModel", ["ProbModel.pyx"], language="c++"),\
-        Extension("findECE", ["findECE.pyx"])]
+        Extension("findECE", ["findECE.pyx"]),
+        Extension("c_IceAlign", ["c_IceAlign.pyx"])]
 
 setup(
 		name = 'c_ICE',

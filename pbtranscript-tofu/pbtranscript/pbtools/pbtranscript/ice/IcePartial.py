@@ -47,6 +47,7 @@ to an output pickle file.
 """
 
 import os
+import sys
 import os.path as op
 import logging
 import time
@@ -58,6 +59,111 @@ from pbtools.pbtranscript.PBTranscriptOptions import add_fofn_arguments
 from pbtools.pbtranscript.ice.ProbModel import ProbFromModel, ProbFromQV, ProbFromFastq
 from pbtools.pbtranscript.ice.IceUtils import blasr_against_ref
 from pbtools.pbtranscript.ice.IceUtils import ice_fa2fq
+from pbtools.pbtranscript.icedalign.IceDalignUtils import DazzIDHandler, DalignerRunner
+from pbtools.pbtranscript.icedalign.IceDalignReader import dalign_against_ref
+
+def build_uc_from_partial_daligner(input_fasta, ref_fasta, out_pickle,
+                          ccs_fofn=None,
+                          done_filename=None, use_finer_qv=False, cpus=24, no_qv_or_aln_checking=True):
+    """
+    Given an input_fasta file of non-full-length (partial) reads and
+    (unpolished) consensus isoforms sequences in ref_fasta, align reads to
+    consensus isoforms using BLASR, and then build up a mapping between
+    consensus isoforms and reads (i.e., assign reads to isoforms).
+    Finally, save
+        {isoform_id: [read_ids],
+         nohit: set(no_hit_read_ids)}
+    to an output pickle file.
+
+    ccs_fofn --- If None, assume no quality value is available,
+    otherwise, use QV from ccs_fofn.
+    """
+    input_fasta = realpath(input_fasta)
+    ref_fasta = realpath(ref_fasta)
+    out_pickle = realpath(out_pickle)
+    output_dir = os.path.dirname(out_pickle)
+
+    # DB should always be already converted
+    ref_obj = DazzIDHandler(ref_fasta, True)
+    input_obj = DazzIDHandler(input_fasta, False)
+
+    # ice_partial is already being called through qsub, so run everything local!
+    runner = DalignerRunner(input_fasta, ref_fasta, is_FL=False, same_strand_only=False, \
+                            query_converted=True, db_converted=True, query_made=False, \
+                            db_made=True, use_sge=False, cpus=cpus)
+    las_filenames, las_out_filenames = runner.runHPC(min_match_len=800, output_dir=output_dir)
+
+    if no_qv_or_aln_checking:
+        # not using QVs or alignment checking!
+        # this probqv is just a DUMMY to pass to daligner_against_ref, which won't be used
+        logging.info("Not using QV for partial_uc. Loading dummy QV.")
+        probqv = ProbFromModel(.01, .07, .06)
+    else:
+        if ccs_fofn is None:
+            logging.info("Loading probability from model (0.01,0.07,0.06)")
+            probqv = ProbFromModel(.01, .07, .06)
+        else:
+            start_t = time.time()
+            if use_finer_qv:
+                probqv = ProbFromQV(input_fofn=ccs_fofn, fasta_filename=input_fasta)
+                logging.info("Loading QVs from {i} + {f} took {s} secs".format(f=ccs_fofn, i=input_fasta,\
+                    s=time.time()-start_t))
+            else:
+                input_fastq = input_fasta[:input_fasta.rfind('.')] + '.fastq'
+                logging.info("Converting {i} + {f} --> {fq}".format(i=input_fasta, f=ccs_fofn, fq=input_fastq))
+                ice_fa2fq(input_fasta, ccs_fofn, input_fastq)
+                probqv = ProbFromFastq(input_fastq)
+                logging.info("Loading QVs from {fq} took {s} secs".format(fq=input_fastq, s=time.time()-start_t))
+                print >> sys.stderr, "Loading QVs from {fq} took {s} secs".format(fq=input_fastq, s=time.time()-start_t)
+
+    logging.info("Calling dalign_against_ref ...")
+
+    partial_uc = {}  # Maps each isoform (cluster) id to a list of reads
+    # which can map to the isoform
+    seen = set()  # reads seen
+    logging.info("Building uc from DALIGNER hits.")
+
+    for las_out_filename in las_out_filenames:
+        start_t = time.time()
+        hitItems = dalign_against_ref(input_obj, ref_obj, las_out_filename,
+                                 is_FL=False,
+                                 sID_starts_with_c=True,
+                                 qver_get_func=probqv.get_smoothed,
+                                 ece_penalty=1,
+                                 ece_min_len=20,
+                                 same_strand_only=False,
+                                 no_qv_or_aln_checking=True)
+        for h in hitItems:
+            if h.ece_arr is not None:
+                if h.cID not in partial_uc:
+                    partial_uc[h.cID] = set()
+                partial_uc[h.cID].add(h.qID)
+                seen.add(h.qID)
+        logging.info("processing {0} took {1} sec".format(las_out_filename, time.time()-start_t))
+        print >> sys.stderr, "processing {0} took {1} sec".format(las_out_filename, time.time()-start_t)
+
+    for k in partial_uc:
+        partial_uc[k] = list(partial_uc[k])
+
+    allhits = set(r.name.split()[0] for r in FastaReader(input_fasta))
+
+    logging.info("Counting reads with no hit.")
+    nohit = allhits.difference(seen)
+
+    logging.info("Dumping uc to a pickle: {f}.".format(f=out_pickle))
+    with open(out_pickle, 'w') as f:
+        dump({'partial_uc': partial_uc, 'nohit': nohit}, f)
+
+    done_filename = realpath(done_filename) if done_filename is not None \
+        else out_pickle + '.DONE'
+    logging.debug("Creating {f}.".format(f=done_filename))
+    touch(done_filename)
+
+    # remove all the .las and .las.out filenames
+    for file in las_filenames:
+        os.remove(file)
+    for file in las_out_filenames:
+        os.remove(file)
 
 def build_uc_from_partial(input_fasta, ref_fasta, out_pickle,
                           sa_file=None, ccs_fofn=None,
@@ -131,9 +237,12 @@ def build_uc_from_partial(input_fasta, ref_fasta, out_pickle,
     for h in hitItems:
         if h.ece_arr is not None:
             if h.cID not in partial_uc:
-                partial_uc[h.cID] = []
-            partial_uc[h.cID].append(h.qID)
+                partial_uc[h.cID] = set()
+            partial_uc[h.cID].add(h.qID)
             seen.add(h.qID)
+
+    for k in partial_uc:
+        partial_uc[k] = list(partial_uc[k])
 
     allhits = set(r.name.split()[0] for r in FastaReader(input_fasta))
 
@@ -202,14 +311,22 @@ class IcePartialOne(object):
 
     def run(self):
         """Run"""
-        logging.info("Building uc from non-full-length reads.")
-        build_uc_from_partial(input_fasta=self.input_fasta,
-                              ref_fasta=self.ref_fasta,
-                              out_pickle=self.out_pickle,
-                              sa_file=self.sa_file,
-                              ccs_fofn=self.ccs_fofn,
-                              blasr_nproc=self.blasr_nproc,
-                              use_finer_qv=self.use_finer_qv)
+        logging.info("Building uc from non-full-length reads using DALIGNER.")
+
+        build_uc_from_partial_daligner(input_fasta=self.input_fasta,
+                                       ref_fasta=self.ref_fasta,
+                                       out_pickle=self.out_pickle,
+                                       ccs_fofn=self.ccs_fofn,
+                                       use_finer_qv=self.use_finer_qv,
+                                       cpus=self.blasr_nproc)
+        # replaced by dagliner above
+        #build_uc_from_partial(input_fasta=self.input_fasta,
+        #                      ref_fasta=self.ref_fasta,
+        #                      out_pickle=self.out_pickle,
+        #                      sa_file=self.sa_file,
+        #                      ccs_fofn=self.ccs_fofn,
+        #                      blasr_nproc=self.blasr_nproc,
+        #                      use_finer_qv=self.use_finer_qv)
 
 
 def add_ice_partial_one_arguments(parser):

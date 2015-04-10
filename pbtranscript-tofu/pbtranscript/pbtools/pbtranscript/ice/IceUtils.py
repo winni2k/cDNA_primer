@@ -1,4 +1,5 @@
 """Define functions useful for IceInit and IceIterative."""
+import pdb
 import os, sys
 import os.path as op
 import logging
@@ -87,6 +88,19 @@ def sanity_check_sge(scriptDir, testDirName="gcon_test_dir"):
         logging.info("sge and gcon check passed.")
         return True
 
+def get_ece_arr_from_alignment(record):
+    """
+    A simplified version of eval_blasr_alignment that does NOT look at QV
+    Simply transform record.alnStr to ece_arr where 1 is error
+
+    ex: |||**||||**|||*|*|
+    to  000110000110001010
+    """
+    ece = np.zeros(len(record.alnStr), dtype=np.int)
+    for offset, nt_aln in enumerate(record.alnStr):
+        ece[offset] = 1 if nt_aln == '*' else 0
+    return ece
+
 
 def eval_blasr_alignment(record, qver_get_func,
                          sID_starts_with_c, qv_prob_threshold):
@@ -113,6 +127,25 @@ def eval_blasr_alignment(record, qver_get_func,
     I write code to check specifically for homopolymers, (otherwise the
     cigar_str[-1]=='D' or 'I' sets in). -- Liz
     """
+    #pdb.set_trace()
+    if record.qStrand == '+':
+        query_qver_get_func = lambda _name, _pos: qver_get_func(record.qID, _name, min(_pos+record.qStart, record.qLength-1))
+        query_qver_get_func1 = lambda _name, _pos: qver_get_func(record.qID, _name, min(_pos+record.qStart+1, record.qLength-1))
+    elif record.qStrand == '-':
+        query_qver_get_func = lambda _name, _pos: qver_get_func(record.qID, _name, max(0, record.qEnd-1-_pos))
+        query_qver_get_func1 = lambda _name, _pos: qver_get_func(record.qID, _name, max(0, record.qEnd-1-_pos-1))
+    else:
+        raise Exception, "Unknown strand type {0}".format(record.qStrand)
+
+    if record.sStrand == '+':
+        subject_qver_get_func = lambda _name, _pos: qver_get_func(record.sID, _name, min(_pos+record.sStart, record.sLength-1))
+        subject_qver_get_func1 = lambda _name, _pos: qver_get_func(record.sID, _name, min(_pos+record.sStart+1, record.sLength-1))
+    elif record.sStrand == '-':
+        subject_qver_get_func = lambda _name, _pos: qver_get_func(record.sID, _name, max(0, record.sEnd-1-_pos))
+        subject_qver_get_func1 = lambda _name, _pos: qver_get_func(record.sID, _name, max(0, record.sEnd-1-_pos-1))
+    else:
+        raise Exception, "Unknown strand type {0}".format(record.sStrand)
+
     q_index = 0
     s_index = 0
     cigar_str = ''
@@ -125,18 +158,18 @@ def eval_blasr_alignment(record, qver_get_func,
             q_index += 1
             s_index += 1
         elif record.qAln[offset] == '-':  # deletion
-            if cigar_str[-1] == 'D' or (
-                qver_get_func(record.qID, 'DeletionQV', q_index + 1) < qv_prob_threshold and
-               (sID_starts_with_c or qver_get_func(record.sID, 'InsertionQV', s_index) < qv_prob_threshold)):
+            if (offset > 0 and cigar_str[-1] == 'D') or (
+                query_qver_get_func1('DeletionQV', q_index) < qv_prob_threshold and
+               (sID_starts_with_c or subject_qver_get_func('InsertionQV', s_index) < qv_prob_threshold)):
                 # case 1: last one was also a D (so q_index did not advance)
                 # case 2: both QVs were good yet still a non-match, penalty!
                 ece[offset] = 1
             cigar_str += 'D'
             s_index += 1
         elif record.sAln[offset] == '-':  # insertion
-            if cigar_str[-1] == 'I' or (
-                    qver_get_func(record.qID, 'InsertionQV', q_index) < qv_prob_threshold and
-                    (sID_starts_with_c or qver_get_func(record.sID, 'DeletionQV', s_index + 1) < qv_prob_threshold)):
+            if (offset > 0 and cigar_str[-1] == 'I') or (
+                    query_qver_get_func('InsertionQV', q_index) < qv_prob_threshold and
+                    (sID_starts_with_c or subject_qver_get_func1('DeletionQV', s_index) < qv_prob_threshold)):
                 # case 1: last one was also a I (so s_index did not advance)
                 # case 2: both QVs were good yet still a no-match
                 ece[offset] = 1
@@ -144,13 +177,12 @@ def eval_blasr_alignment(record, qver_get_func,
             q_index += 1
         else:  # substitution
             cigar_str += 'S'
-            if qver_get_func(record.qID, 'SubstitutionQV', q_index) < qv_prob_threshold and \
-               (sID_starts_with_c or qver_get_func(record.sID, 'SubstitutionQV', s_index) < qv_prob_threshold):
+            if query_qver_get_func('SubstitutionQV', q_index) < qv_prob_threshold and \
+               (sID_starts_with_c or subject_qver_get_func('SubstitutionQV', s_index) < qv_prob_threshold):
                 ece[offset] = 1
             q_index += 1
             s_index += 1
-    #assert q_index == len(record.qAln) - record.qAln.count('-')
-    #assert s_index == len(record.sAln) - record.sAln.count('-')
+
     return cigar_str, ece
 
 

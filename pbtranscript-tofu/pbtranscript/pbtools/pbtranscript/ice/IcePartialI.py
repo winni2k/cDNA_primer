@@ -140,7 +140,7 @@ from pbtools.pbtranscript.PBTranscriptOptions import add_fofn_arguments, \
     add_cluster_root_dir_as_positional_argument
 from pbtools.pbtranscript.Utils import nfs_exists
 from pbtools.pbtranscript.ice.IceFiles import IceFiles
-from pbtools.pbtranscript.ice.IcePartial import build_uc_from_partial
+from pbtools.pbtranscript.ice.IcePartial import build_uc_from_partial, build_uc_from_partial_daligner
 
 
 def add_ice_partial_i_arguments(parser):
@@ -209,7 +209,7 @@ class IcePartialI(object):
     def validate_inputs(self):
         """Check inputs, and write ice_partial.py i command to script file,
         return
-        (input_fasta, ref_fasta, sa_file, out_pickle, done_file)
+        (input_fasta, ref_fasta, dazz_db, out_pickle, done_file)
         for the i-th chunk of nfl reads.
         """
         return self._validate_inputs(root_dir=self.root_dir,
@@ -227,7 +227,8 @@ class IcePartialI(object):
 
         # root_dir/output/final.consensus.fa
         ref_fasta = icef.final_consensus_fa
-        sa_file = icef.final_consensus_sa
+        ref_dazz = icef.final_dazz_db
+        #sa_file = icef.final_consensus_sa
 
         # root_dir/output/map_noFL/input.split_{0:02d}.fa
         input_fasta = icef.nfl_fa_i(i)
@@ -251,9 +252,13 @@ class IcePartialI(object):
             errMsg = ("The unpolished consensus isoforms fasta file " +
                       "{f} does not exist. ".format(f=ref_fasta) +
                       "Please make sure ICE is successfully done.")
-        elif not nfs_exists(sa_file):
-            errMsg = ("The suffix array of unpolished consensus isoforms " +
-                      "(i.e., final_consensus_sa) {f} does not exist.")
+        elif not nfs_exists(ref_dazz):
+            errMsg = ("The dazz db " +
+                      "{f} does not exist. ".format(f=ref_dazz) +
+                      "Please make sure it is already built.")
+#        elif not nfs_exists(sa_file):
+#            errMsg = ("The suffix array of unpolished consensus isoforms " +
+#                      "(i.e., final_consensus_sa) {f} does not exist.")
         if len(errMsg) != 0:
             raise ValueError(errMsg)
 
@@ -268,7 +273,7 @@ class IcePartialI(object):
                      format(script_file=script_file))
         icef.close_log()
 
-        return (input_fasta, ref_fasta, sa_file, out_pickle, done_file)
+        return (input_fasta, ref_fasta, ref_dazz, out_pickle, done_file)
 
     def run(self):
         """Run IcePartialI"""
@@ -278,17 +283,25 @@ class IcePartialI(object):
 
         # Validate input files, write equivalent command
         # to script_file.
-        input_fasta, ref_fasta, sa_file, out_pickle, done_file = \
+        input_fasta, ref_fasta, dazz_db, out_pickle, done_file = \
             self.validate_inputs()
 
-        logging.info("Calling build_uc_from_partial.")
-        build_uc_from_partial(input_fasta=input_fasta,
-                              ref_fasta=ref_fasta,
-                              out_pickle=out_pickle,
-                              sa_file=sa_file,
-                              ccs_fofn=self.ccs_fofn,
-                              done_filename=done_file,
-                              blasr_nproc=self.blasr_nproc)
+        logging.info("Calling build_uc_from_partial using DALIGNER.")
+        build_uc_from_partial_daligner(input_fasta=input_fasta,
+                                       ref_fasta=ref_fasta,
+                                       out_pickle=out_pickle,
+                                       ccs_fofn=self.ccs_fofn,
+                                       done_filename=done_file,
+                                       use_finer_qv=False,
+                                       cpus=self.blasr_nproc)
+        # replaced by dagliner above
+        #build_uc_from_partial(input_fasta=input_fasta,
+        #                      ref_fasta=ref_fasta,
+        #                      out_pickle=out_pickle,
+        #                      sa_file=sa_file,
+        #                      ccs_fofn=self.ccs_fofn,
+        #                      done_filename=done_file,
+        #                      blasr_nproc=self.blasr_nproc)
 
 
 # import os.path as op

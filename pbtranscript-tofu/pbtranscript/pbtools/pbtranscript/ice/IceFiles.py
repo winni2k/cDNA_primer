@@ -108,12 +108,17 @@ class IceFiles(object):
     @property
     def final_consensus_fa(self):
         """Return final consensus Fasta file."""
-        return op.join(self.out_dir, "final.consensus.fa")
+        return op.join(self.out_dir, "final.consensus.fasta")
 
     @property
     def final_consensus_sa(self):
         """Return suffix array of the final consensus Fa file."""
-        return op.join(self.out_dir, "final.consensus.fa.sa")
+        return op.join(self.out_dir, "final.consensus.fasta.sa")
+
+    @property
+    def final_dazz_db(self):
+        """Return final.consensus.dazz.fasta.db"""
+        return op.join(self.out_dir, "final.consensus.dazz.fasta.db")
 
     @property
     def final_pickle_fn(self):
@@ -128,8 +133,10 @@ class IceFiles(object):
     def nfl_fa_i(self, i):
         """Return the i-th splitted chunk of nfl reads.
            $root_dir/output/map_noFL/input.split_{0:03d}.fa
+
+           NOTE: make sure this agrees with io.FastaSplitter._out_fn()
         """
-        fa_name = "input.split_{0:03d}.fa".format(i)
+        fa_name = "input.split_{0:03d}.fasta".format(i)
         return op.join(self.nfl_dir, fa_name)
 
     def nfl_pickle_i(self, i):
@@ -159,25 +166,25 @@ class IceFiles(object):
         """Return $cluster_dir/in.raw_with_partial.fa, which
         contains the unrolled sequence of zmws belonging to cluster
         cid."""
-        return op.join(self.cluster_dir(cid), "in.raw_with_partial.fa")
+        return op.join(self.cluster_dir(cid), "in.raw_with_partial.fasta")
 
     def g_consensus_fa_of_cluster(self, cid):
         """Return $cluster_dir(cid)/g_consensus.fa.
         Whenever this is changed, the ice_pbdagcon.py command needs
         to be changed accordingly.
         """
-        return op.join(self.cluster_dir(cid), "g_consensus.fa")
+        return op.join(self.cluster_dir(cid), "g_consensus.fasta")
 
     def g_consensus_ref_fa_of_cluster(self, cid):
         """Return $cluster_dir(cid)/g_consensus_ref.fa.
         Whenever this is changed, the ice_pbdagcon.py command needs
         to be changed accordingly.
         """
-        return op.join(self.cluster_dir(cid), "g_consensus_ref.fa")
+        return op.join(self.cluster_dir(cid), "g_consensus_ref.fasta")
 
     def first_seq_fa_of_cluster(self, cid):
         """Return $cluster_dir(cid)/in.fa.1stseq.fa"""
-        return op.join(self.cluster_dir(cid), "in.fa.1stseq.fa")
+        return op.join(self.cluster_dir(cid), "in.fa.1stseq.fasta")
 
     def sam_of_cluster(self, cid):
         """Return $cluster_dir/out.sam.

@@ -38,7 +38,7 @@ class FastaSplitter(object):
         if split_index > 999:
             raise ValueError("Too many splitted files to generate: number " +
                              "of splitted files exceed 1000.")
-        name = "{prefix}_{idx:03d}.fa".format(prefix=self.out_prefix,
+        name = "{prefix}_{idx:03d}.fasta".format(prefix=self.out_prefix,
                                               idx=split_index)
         return op.join(self.out_dir, name)
 

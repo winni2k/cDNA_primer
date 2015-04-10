@@ -6,14 +6,16 @@ input reads against itself.
 __author__ = 'etseng@pacificbiosciences.com'
 
 import os
+import time
 import networkx as nx
 import logging
 from pbcore.io import FastaReader
 from pbcore.util.Process import backticks
 from pbtools.pbtranscript.Utils import real_upath
 import pbtools.pbtranscript.ice.pClique as pClique
-from pbtools.pbtranscript.ice.IceUtils import blasr_against_ref
-
+#from pbtools.pbtranscript.ice.IceUtils import blasr_against_ref  # replacing this with dalign_against_ref
+from pbtools.pbtranscript.icedalign.IceDalignUtils import DazzIDHandler, DalignerRunner
+from pbtools.pbtranscript.icedalign.IceDalignReader import dalign_against_ref
 
 class IceInit(object):
     """Iterative clustering and error correction."""
@@ -31,43 +33,76 @@ class IceInit(object):
             qver_get_func=qver_get_func,
             ice_opts=ice_opts, sge_opts=sge_opts)
 
-    def _align(self, queryFa, targetFa, outFN, ice_opts, sge_opts):
-        """Align input reads against itself using BLASR."""
-        if os.path.exists(outFN):
-            logging.info("{0} already exists. No need to run BLASR.".
-                format(outFN))
-        else:
-            cmd = "blasr {q} ".format(q=real_upath(queryFa)) + \
-                  "{t} ".format(t=real_upath(targetFa)) + \
-                  "-m 5 -maxLCPLength 15 " + \
-                  "-nproc {cpu} ".format(cpu=sge_opts.blasr_nproc) + \
-                  "-maxScore {score} ".format(score=ice_opts.maxScore) + \
-                  "-bestn {n} -nCandidates {n} ".format(n=ice_opts.bestn) + \
-                  "-out {o}".format(o=real_upath(outFN))
-            logging.info("Calling {cmd}".format(cmd=cmd))
-            _output, code, msg = backticks(cmd)
-            if code != 0:
-                errMsg = "{cmd} exited with {code}: {msg}".\
-                        format(cmd=cmd, code=code, msg=msg)
-                logging.error(errMsg)
-                raise RuntimeError (errMsg)
+    # OBSOLETE version using BLASR
+    # def _align(self, queryFa, targetFa, outFN, ice_opts, sge_opts):
+    #     """Align input reads against itself using BLASR."""
+    #     if os.path.exists(outFN):
+    #         logging.info("{0} already exists. No need to run BLASR.".
+    #             format(outFN))
+    #     else:
+    #         cmd = "blasr {q} ".format(q=real_upath(queryFa)) + \
+    #               "{t} ".format(t=real_upath(targetFa)) + \
+    #               "-m 5 -maxLCPLength 15 " + \
+    #               "-nproc {cpu} ".format(cpu=sge_opts.blasr_nproc) + \
+    #               "-maxScore {score} ".format(score=ice_opts.maxScore) + \
+    #               "-bestn {n} -nCandidates {n} ".format(n=ice_opts.bestn) + \
+    #               "-out {o}".format(o=real_upath(outFN))
+    #         logging.info("Calling {cmd}".format(cmd=cmd))
+    #         _output, code, msg = backticks(cmd)
+    #         if code != 0:
+    #             errMsg = "{cmd} exited with {code}: {msg}".\
+    #                     format(cmd=cmd, code=code, msg=msg)
+    #             logging.error(errMsg)
+    #             raise RuntimeError (errMsg)
 
-    def _makeGraphFromM5(self, m5FN, qver_get_func, ice_opts):
-        """Construct a graph from a BLASR M5 file."""
+    def _align(self, queryFa, output_dir, ice_opts, sge_opts):
+
+        input_obj = DazzIDHandler(queryFa, False)
+        DalignerRunner.make_db(input_obj.dazz_filename)
+
+        # run this locally
+        runner = DalignerRunner(queryFa, queryFa, is_FL=True, same_strand_only=True, \
+                            query_converted=True, db_converted=True, query_made=True, \
+                            db_made=True, use_sge=False, cpus=4)
+        las_filenames, las_out_filenames = runner.runHPC(min_match_len=800, output_dir=output_dir)
+        return input_obj, las_out_filenames
+
+
+    # OBSOLETE version using BLASR
+    # def _makeGraphFromM5(self, m5FN, qver_get_func, ice_opts):
+    #     """Construct a graph from a BLASR M5 file."""
+    #     alignGraph = nx.Graph()
+    #
+    #     for r in blasr_against_ref(output_filename=m5FN,
+    #         is_FL=True,
+    #         sID_starts_with_c=False,
+    #         qver_get_func=qver_get_func,
+    #         ece_penalty=ice_opts.ece_penalty,
+    #         ece_min_len=ice_opts.ece_min_len):
+    #         if r.qID == r.cID:
+    #             continue # self hit, ignore
+    #         if r.ece_arr is not None:
+    #             logging.debug("adding edge {0},{1}".format(r.qID, r.cID))
+    #             alignGraph.add_edge(r.qID, r.cID)
+    #     return alignGraph
+
+    def _makeGraphFromLasOut(self, las_out_filenames, dazz_obj, qver_get_func, ice_opts):
         alignGraph = nx.Graph()
 
-        for r in blasr_against_ref(output_filename=m5FN,
-            is_FL=True,
-            sID_starts_with_c=False,
-            qver_get_func=qver_get_func,
-            ece_penalty=ice_opts.ece_penalty,
-            ece_min_len=ice_opts.ece_min_len):
-            if r.qID == r.cID:
-                continue # self hit, ignore
-            if r.ece_arr is not None:
-                logging.debug("adding edge {0},{1}".format(r.qID, r.cID))
-                alignGraph.add_edge(r.qID, r.cID)
+        for las_out_filename in las_out_filenames:
+            count = 0
+            start_t = time.time()
+            for r in dalign_against_ref(dazz_obj, dazz_obj, las_out_filename, is_FL=True, sID_starts_with_c=False,
+                      qver_get_func=qver_get_func, qv_prob_threshold=.03,
+                      ece_penalty=ice_opts.ece_penalty, ece_min_len=ice_opts.ece_min_len,
+                      same_strand_only=True, no_qv_or_aln_checking=False):
+                if r.qID == r.cID: continue # self hit, ignore
+                if r.ece_arr is not None:
+                    alignGraph.add_edge(r.qID, r.cID)
+                    count += 1
+            logging.debug("total {0} edges added from {1}; took {2} sec".format(count, las_out_filename, time.time()-start_t))
         return alignGraph
+
 
     def _findCliques(self, alignGraph, readsFa):
         """
@@ -141,13 +176,12 @@ class IceInit(object):
         Returns dict of cluster_index --> list of seqids
         which is the 'uc' dict that can be used by IceIterative
         """
-        outFN = readsFa + '.self.blasr'
+        output_dir = os.path.dirname(readsFa)
 
-        self._align(queryFa=readsFa, targetFa=readsFa, outFN=outFN,
+        dazz_obj, las_out_filenames = self._align(queryFa=readsFa, output_dir=output_dir,
             ice_opts=ice_opts, sge_opts=sge_opts)
 
-        alignGraph = self._makeGraphFromM5(m5FN=outFN,
-            qver_get_func=qver_get_func, ice_opts=ice_opts)
+        alignGraph = self._makeGraphFromLasOut(las_out_filenames, dazz_obj, qver_get_func, ice_opts)
 
         uc = self._findCliques(alignGraph=alignGraph, readsFa=readsFa)
         return uc

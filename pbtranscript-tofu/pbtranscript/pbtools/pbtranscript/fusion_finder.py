@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import pdb
 import os, sys
 import itertools
 from cPickle import *
@@ -14,7 +15,7 @@ from pbcore.io.FastqIO import FastqWriter
 
 from bx.intervals.cluster import ClusterTree
 
-def pick_rep(fa_fq_filename, gff_filename, group_filename, output_filename, is_fq=False, pick_least_err_instead=False):
+def pick_rep(fa_fq_filename, sam_filename, gff_filename, group_filename, output_filename, is_fq=False, pick_least_err_instead=False):
     """
     For each group, select the representative record
 
@@ -30,20 +31,22 @@ def pick_rep(fa_fq_filename, gff_filename, group_filename, output_filename, is_f
         fd = LazyFastaReader(fa_fq_filename)
         fout = FastaWriter(output_filename)
 
-    coords = {}
-    for line in open(gff_filename):
-        # ex: chr1    PacBio  transcript      27567   29336   .       -       .       gene_id "PBfusion.1"; transcript_id "PBfusion.1.1";
-        raw = line.strip().split('\t')
-        if raw[2] == 'transcript': 
-            # check if this is first or 2+ part of fusion
-            tid = raw[-1].split('; ')[1].split()[1][1:-2] # ex: tid = PBfusion.1.1
-            gid = tid[:tid.rfind('.')]
-            if tid.endswith('.1'):
-                coords[gid] = "{0}:{1}-{2}({3})".format(raw[0], raw[3], raw[4], raw[6])
-            else:
-                assert gid in coords
-                coords[gid] += "+{0}:{1}-{2}({3})".format(raw[0], raw[3], raw[4], raw[6])
 
+#    for line in open(gff_filename):
+#        # ex: chr1    PacBio  transcript      27567   29336   .       -       .       gene_id "PBfusion.1"; transcript_id "PBfusion.1.1";
+#        raw = line.strip().split('\t')
+#        if raw[2] == 'transcript':
+#            # check if this is first or 2+ part of fusion
+#            tid = raw[-1].split('; ')[1].split()[1][1:-2] # ex: tid = PBfusion.1.1
+#            gid = tid[:tid.rfind('.')] # ex: gid = PBfusion.1
+#            if tid.endswith('.1'):
+#                coords[gid] = "{0}:{1}-{2}({3})".format(raw[0], raw[3], raw[4], raw[6])
+#            else:
+#                assert gid in coords
+#                coords[gid] += "+{0}:{1}-{2}({3})".format(raw[0], raw[3], raw[4], raw[6])
+
+    rep_info = {}
+    id_to_rep = {}
     for line in open(group_filename):
         pb_id, members = line.strip().split('\t')
         print >> sys.stderr, "Picking representative sequence for", pb_id
@@ -63,8 +66,45 @@ def pick_rep(fa_fq_filename, gff_filename, group_filename, output_filename, is_f
                     best_qual = fd[x].quality
                     best_err = err
                 max_len = len(fd[x].sequence)
+        rep_info[pb_id] = (best_id, best_seq, best_qual)
+        id_to_rep[best_id] = pb_id
 
-        _id_ = "{0}|{1}|{2}".format(pb_id, coords[pb_id], best_id)
+    f_gff = open(gff_filename, 'w')
+    coords = {}
+    record_storage = {} # temporary storage for the .1 record to write in conjunction with second record
+    for r in BioReaders.GMAPSAMReader(sam_filename, True):
+        if r.qID in id_to_rep:
+            pb_id = id_to_rep[r.qID]
+            best_id, best_seq, best_qual = rep_info[pb_id]
+
+            # make coordinates & write the SAM file
+            if r.qID not in coords:
+                # this is the .1 portion
+                coords[r.qID] = "{0}:{1}-{2}({3})".format(r.sID, r.sStart, r.sEnd, r.flag.strand)
+                isoform_index = 1
+                record_storage[pb_id] = r
+            else:
+                # this is the .2 portion
+                coords[r.qID] += "+{0}:{1}-{2}({3})".format(r.sID, r.sStart, r.sEnd, r.flag.strand)
+                isoform_index = 1
+
+                old_r = record_storage[pb_id]
+                f_gff.write("{chr}\tPacBio\ttranscript\t{s}\t{e}\t.\t{strand}\t.\tgene_id \"{pi}\"; transcript_id \"{pi}.{j}\";\n".format(\
+                    chr=old_r.sID, s=old_r.segments[0].start+1, e=old_r.segments[-1].end, pi=pb_id, j=isoform_index, strand=old_r.flag.strand))
+                for s in old_r.segments:
+                    f_gff.write("{chr}\tPacBio\texon\t{s}\t{e}\t.\t{strand}\t.\tgene_id \"{pi}\"; transcript_id \"{pi}.{j}\";\n".format(\
+                        chr=old_r.sID, s=s.start+1, e=s.end, pi=pb_id, j=isoform_index, strand=old_r.flag.strand))
+                isoform_index = 2
+                f_gff.write("{chr}\tPacBio\ttranscript\t{s}\t{e}\t.\t{strand}\t.\tgene_id \"{pi}\"; transcript_id \"{pi}.{j}\";\n".format(\
+                    chr=r.sID, s=r.segments[0].start+1, e=r.segments[-1].end, pi=pb_id, j=isoform_index, strand=r.flag.strand))
+                for s in r.segments:
+                    f_gff.write("{chr}\tPacBio\texon\t{s}\t{e}\t.\t{strand}\t.\tgene_id \"{pi}\"; transcript_id \"{pi}.{j}\";\n".format(\
+                        chr=r.sID, s=s.start+1, e=s.end, pi=pb_id, j=isoform_index, strand=r.flag.strand))
+    f_gff.close()
+
+    for pb_id in rep_info:
+        best_id, best_seq, best_qual = rep_info[pb_id]
+        _id_ = "{0}|{1}|{2}".format(pb_id, coords[best_id], best_id)
         _seq_ = best_seq
         if is_fq:
             fout.writeRecord(_id_, _seq_, best_qual)
@@ -77,7 +117,7 @@ def sep_by_strand(records):
         output[r.flag.strand].append(r)
     return output
 
-def is_fusion_compatible(r1, r2, max_fusion_point_dist, allow_extra_5_exons):
+def is_fusion_compatible(r1, r2, max_fusion_point_dist, max_exon_end_dist, allow_extra_5_exons):
     """
     Helper function for: merge_fusion_exons()
 
@@ -88,16 +128,18 @@ def is_fusion_compatible(r1, r2, max_fusion_point_dist, allow_extra_5_exons):
     (3) if allow_extra_5_exons is False, num exons must be the same
         if allow_extra_5_exons is True, only allow additional 5' exons
     """
-    MAX_QSTART_FOR_5 = 100
+#    _ids = 'i1a_c1603/f67p459/1248,i1b_c19881/f7p368/1235,newClontech_i0HQ|c18279/f6p24/1229,i2b_c22046/f2p494/2157,i2a_c4714/f10p554/2152'.split(',')
+#    if r1.qID in _ids or r2.qID in _ids: 
+#        pdb.set_trace()
     # first need to figure out ends
     # also check that both are in the 5' portion of r1 and r2
     assert r1.flag.strand == r2.flag.strand
-    if r1.qStart < MAX_QSTART_FOR_5: # in the 5' portion of r1
-        if r2.qStart > MAX_QSTART_FOR_5: # in the 3' portion, reject
+    if r1.qStart <= .5*r1.qLen: # in the 5' portion of r1
+        if r2.qStart > .5*r2.qLen: # in the 3' portion, reject
             return False
         in_5_portion = True
     else: # in the 3' portion of r1
-        if r2.qStart < MAX_QSTART_FOR_5: 
+        if r2.qStart <= .5*r2.qLen: 
             return False
         in_5_portion = False
     plus_is_5end = (r1.flag.strand == '+')
@@ -120,11 +162,13 @@ def is_fusion_compatible(r1, r2, max_fusion_point_dist, allow_extra_5_exons):
             # check that the 3' junction is identical
             # also check that the 3' end is relatively close
             if in_5_portion and plus_is_5end:
-                if r1.segments[-1].start != r2.segments[-1].start: return False
+                if abs(r1.segments[-1].start - r2.segments[-1].start) > max_exon_end_dist: return False
                 if abs(r1.segments[-1].end - r2.segments[-1].end) > max_fusion_point_dist: return False
+                return True
             elif in_5_portion and (not plus_is_5end):
-                if r1.segments[0].end != r2.segments[0].end: return False
+                if abs(r1.segments[0].end - r2.segments[0].end) > max_exon_end_dist: return False
                 if abs(r1.segments[0].start - r2.segments[0].start) > max_fusion_point_dist: return False
+                return True
             else:
                 return False
         else: # not OK because number of exons must be the same
@@ -132,7 +176,7 @@ def is_fusion_compatible(r1, r2, max_fusion_point_dist, allow_extra_5_exons):
     else: #ex: partial, nomatch, etc...
         return False
 
-def merge_fusion_exons(records, max_fusion_point_dist, allow_extra_5_exons):
+def merge_fusion_exons(records, max_fusion_point_dist, max_exon_end_dist, allow_extra_5_exons):
     """
     Records is a list of overlapping GMAP SAM Records (must be on same strand)
     Unlike regular (non-fusion) mapping, only merge records if:
@@ -151,7 +195,10 @@ def merge_fusion_exons(records, max_fusion_point_dist, allow_extra_5_exons):
         merged = False
         # go through output, seeing if mergeable
         for i, r2s in enumerate(output):
-            if all(is_fusion_compatible(r1, r2, max_fusion_point_dist, allow_extra_5_exons) for r2 in r2s):
+#            _ids = 'i1a_c1603/f67p459/1248,i1b_c19881/f7p368/1235,newClontech_i0HQ|c18279/f6p24/1229,i2b_c22046/f2p494/2157,i2a_c4714/f10p554/2152'.split(',')
+#            if r1.qID in _ids and any(r2.qID in _ids for r2 in r2s):
+#                pdb.set_trace()
+            if all(is_fusion_compatible(r1, r2, max_fusion_point_dist, max_exon_end_dist, allow_extra_5_exons) for r2 in r2s):
                 output[i].append(r1)
                 merged = True
                 break
@@ -184,15 +231,16 @@ def iter_gmap_sam_for_fusion(gmap_sam_filename, fusion_candidates, transfrag_len
     if len(records) > 0:
         yield(sep_by_strand(records))
 
-def find_fusion_candidates(sam_filename, query_len_dict, min_locus_coverage=.1, min_total_coverage=.99, min_dist_between_loci=100000):
+
+def find_fusion_candidates(sam_filename, query_len_dict, min_locus_coverage=.05, min_total_coverage=.99, min_dist_between_loci=100000):
     """
     Return list of fusion candidates qIDs
     (1) must map to 2 or more loci
-    (2) minimum coverage for each loci is 10%
-    (3) total coverage is >= 99%
+    (2) minimum coverage for each loci is 5%
+    (3) total coverage is >= 95%
     (4) distance between the loci is at least 100kb
     """
-    TmpRec = namedtuple('TmpRec', ['qCov', 'qLen', 'qStart', 'qEnd', 'sStart', 'sEnd'])
+    TmpRec = namedtuple('TmpRec', ['qCov', 'qLen', 'qStart', 'qEnd', 'sStart', 'sEnd', 'iden'])
     def total_coverage(tmprecs):
         tree = ClusterTree(0, 0)
         for r in tmprecs: tree.insert(r.qStart, r.qEnd, -1)
@@ -200,10 +248,17 @@ def find_fusion_candidates(sam_filename, query_len_dict, min_locus_coverage=.1, 
 
     d = defaultdict(lambda: [])
     reader = BioReaders.GMAPSAMReader(sam_filename, True, query_len_dict=query_len_dict)
-    for r in reader: d[r.qID].append(TmpRec(qCov=r.qCoverage, qLen=r.qLen, qStart=r.qStart, qEnd=r.qEnd, sStart=r.sStart, sEnd=r.sEnd))
+    for r in reader:
+        if r.sID == '*': continue
+        if r.flag.strand == '+':
+            d[r.qID].append(TmpRec(qCov=r.qCoverage, qLen=r.qLen, qStart=r.qStart, qEnd=r.qEnd, sStart=r.sStart, sEnd=r.sEnd, iden=r.identity))
+        else:
+            d[r.qID].append(TmpRec(qCov=r.qCoverage, qLen=r.qLen, qStart=r.qLen-r.qEnd, qEnd=r.qLen-r.qStart, sStart=r.sStart, sEnd=r.sEnd, iden=r.identity))
     fusion_candidates = []
     for k, data in d.iteritems():
+#        if k.startswith('i3_c68723/f6p549'): pdb.set_trace()
         if len(data) > 1 and \
+            all(a.iden>=.95 for a in data) and \
             all(a.qCov>=min_locus_coverage for a in data) and \
             total_coverage(data)*1./data[0].qLen >= min_total_coverage and \
             all(max(a.sStart,b.sStart)-min(a.sEnd,b.sEnd)>=min_dist_between_loci \
@@ -211,7 +266,7 @@ def find_fusion_candidates(sam_filename, query_len_dict, min_locus_coverage=.1, 
                     fusion_candidates.append(k)
     return fusion_candidates
 
-def fusion_main(fa_or_fq_filename, sam_filename, output_prefix, is_fq=False, allow_extra_5_exons=True, skip_5_exon_alt=False, prefix_dict_pickle_filename=None):
+def fusion_main(fa_or_fq_filename, sam_filename, output_prefix, is_fq=False, allow_extra_5_exons=True, skip_5_exon_alt=True, prefix_dict_pickle_filename=None):
     """
     (1) identify fusion candidates (based on mapping, total coverage, identity, etc)
     (2) group/merge the fusion exons, using an index to point to each individual part
@@ -236,31 +291,43 @@ def fusion_main(fa_or_fq_filename, sam_filename, output_prefix, is_fq=False, all
     for recs in iter_gmap_sam_for_fusion(sam_filename, fusion_candidates, bs.transfrag_len_dict):
         for v in recs.itervalues():
             if len(v) > 0:
-                o = merge_fusion_exons(v, max_fusion_point_dist=100, allow_extra_5_exons=allow_extra_5_exons)
+                o = merge_fusion_exons(v, max_fusion_point_dist=100, max_exon_end_dist=0, allow_extra_5_exons=allow_extra_5_exons)
                 for group in o:
                     merged_exons.append(group)
                     for r in group: compressed_records_pointer_dict[r.qID].append(merged_i)
                     merged_i += 1
 
     # step (3). use BranchSimple to write a temporary file
-    f_good = open(output_prefix + '.gff', 'w')
+#    f_good = open(output_prefix + '.gff', 'w')
     f_group = open('branch_tmp.group.txt', 'w')
-    f_bad = f_good
+#    f_bad = f_good
     gene_index = 1
+    already_seen = set()
     for qid,indices in compressed_records_pointer_dict.iteritems():
+        combo = tuple(indices)
+        if combo in already_seen:
+            print "combo seen:", combo
+            #raw_input("")
+            continue
+        already_seen.add(combo)
+#        if gene_index == 7:
+#            pdb.set_trace()
         for isoform_index,i in enumerate(indices):
             bs.cuff_index = gene_index # for set to the same
             records = merged_exons[i]
-            bs.process_records(records, allow_extra_5_exons, skip_5_exon_alt, \
-                    f_good, f_bad, f_group, tolerate_end=100, \
-                    starting_isoform_index=isoform_index, gene_prefix='PBfusion')
+            f_group.write("{p}.{i}.{j}\t{ids}\n".format(p="PBfusion", i=gene_index, j=isoform_index, ids=",".join(r.qID for r in records)))
+#            bs.process_records(records, allow_extra_5_exons, skip_5_exon_alt, \
+#                    f_good, f_bad, f_group, tolerate_end=100, \
+#                    starting_isoform_index=isoform_index, gene_prefix='PBfusion')
         gene_index += 1
-    f_good.close()
-    f_bad.close()
+#    f_good.close()
+#    f_bad.close()
     f_group.close()
+
 
     # step (4). read the tmp file and modify to display per fusion gene
     f_group = open(output_prefix + '.group.txt', 'w')
+    group_info = {} # ex: PBfusion.1 --> [id1, id2, id3...]
     count = 0
     with open('branch_tmp.group.txt') as f:
         while True:
@@ -271,9 +338,10 @@ def fusion_main(fa_or_fq_filename, sam_filename, output_prefix, is_fq=False, all
             assert pbid1.split('.')[1] == pbid2.split('.')[1]
             group = set(groups1.split(',')).intersection(groups2.split(','))
             f_group.write("{0}\t{1}\n".format(pbid1[:pbid1.rfind('.')], ",".join(group)))
+            group_info[pbid1[:pbid1.rfind('.')]] = list(group)
             count += 1
     f_group.close()
-    os.remove('branch_tmp.group.txt')
+    #os.remove('branch_tmp.group.txt')
 
     gff_filename = output_prefix + '.gff'
     group_filename = output_prefix + '.group.txt'
@@ -281,7 +349,7 @@ def fusion_main(fa_or_fq_filename, sam_filename, output_prefix, is_fq=False, all
         output_filename = output_prefix + '.rep.fq'
     else:
         output_filename = output_prefix + '.rep.fa'
-    pick_rep(fa_or_fq_filename, gff_filename, group_filename, output_filename, is_fq=is_fq, pick_least_err_instead=False)
+    pick_rep(fa_or_fq_filename, sam_filename, gff_filename, group_filename, output_filename, is_fq=is_fq, pick_least_err_instead=False)
 
     print >> sys.stderr, "{0} fusion candidates identified.".format(count)
     print >> sys.stderr, "Output written to: {0}.gff, {0}.group.txt, {1}".format(output_prefix, output_filename)
