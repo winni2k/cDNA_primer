@@ -110,14 +110,6 @@ def dalign_against_ref(dazz_query_obj, dazz_db_obj, las_out_filename, is_FL, sID
             continue
 
 
-        if not is_FL:
-            yield HitItem(qID=r.qID, cID=cID,
-                              qStart=r.qStart, qEnd=r.qEnd,
-                              missed_q=missed_q * 1. / r.qLength,
-                              missed_t=missed_t * 1. / r.sLength,
-                              fakecigar=1,
-                              ece_arr=1)
-
         # full-length case: allow up to 200bp of 5' not aligned
         # and 50bp of 3' not aligned
         if (is_FL and (r.sStart > 200 or r.qStart > 200 or
@@ -143,3 +135,5 @@ def dalign_against_ref(dazz_query_obj, dazz_db_obj, las_out_filename, is_FL, sID
                               missed_t=missed_t * 1. / r.sLength,
                               fakecigar=cigar_str,
                               ece_arr=ece_arr)
+
+

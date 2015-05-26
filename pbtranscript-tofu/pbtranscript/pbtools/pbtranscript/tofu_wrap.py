@@ -43,7 +43,8 @@ def sep_flnc_by_primer(flnc_filename, root_dir, output_filename='isoseq_flnc.fas
     for f in handles.itervalues(): f.close()
     primers = list(primers)
     primers.sort(key=lambda x: int(x))
-    return [handles[x] for x in primers]
+    names = [handles[x].name for x in primers]
+    return filter(lambda x: os.stat(x).st_size > 0, names)
 
 
 def sep_flnc_by_size(flnc_filename, root_dir, bin_size_kb=1, bin_manual=None, max_base_limit_MB=600, output_filename='isoseq_flnc.fasta'):
@@ -168,7 +169,11 @@ def run_collapse_sam(fastq_filename, gmap_db_dir, gmap_db_name, cpus=24, min_cov
         cmd += " -o {fq}.5merge".format(fq=fastq_filename)
     print >> sys.stderr, "CMD:", cmd
     subprocess.check_call(cmd, shell=True)
-    return fastq_filename + '.5merge.collapsed'
+
+    if dun_merge_5_shorter:
+        return fastq_filename + '.no5merge.collapsed'
+    else:
+        return fastq_filename + '.5merge.collapsed'
 
 def get_abundance(collapse_prefix, prefix_dict, output_prefix, restricted_movies=None):
     cid_info = sp.read_group_filename(collapse_prefix + ".group.txt", is_cid=True,\
@@ -193,7 +198,7 @@ def get_abundance(collapse_prefix, prefix_dict, output_prefix, restricted_movies
 
 def tofu_wrap_main():
     parser = argparse.ArgumentParser()
-    add_cluster_arguments(parser)
+    add_cluster_arguments(parser, show_sge_env_name=True, show_sge_queue=True)
 
     parser.add_argument("--bin_size_kb", default=1, type=int, help="Bin size by kb (default: 1)")
     parser.add_argument("--bin_manual", default=None, help="Bin manual (ex: (1,2,3,5)), overwrites bin_size_kb")
@@ -225,7 +230,7 @@ def tofu_wrap_main():
         sys.exit(-1)
     # #################################################################
 
-    tofu_prefix = binascii.b2a_hex(os.urandom(3)) if args.output_seqid_prefix is None else output_seqid_prefix
+    tofu_prefix = binascii.b2a_hex(os.urandom(3)) if args.output_seqid_prefix is None else args.output_seqid_prefix
 
     ice_opts = IceOptions(cDNA_size=args.cDNA_size,
             quiver=args.quiver)
@@ -233,7 +238,10 @@ def tofu_wrap_main():
             use_sge=args.use_sge,
             max_sge_jobs=args.max_sge_jobs,
             blasr_nproc=args.blasr_nproc,
-            quiver_nproc=args.quiver_nproc)
+            quiver_nproc=args.quiver_nproc,
+            gcon_nproc=args.gcon_nproc,
+            sge_env_name=args.sge_env_name,
+            sge_queue=args.sge_queue)
     ipq_opts = IceQuiverHQLQOptions(qv_trim_5=args.qv_trim_5,
             qv_trim_3=args.qv_trim_3,
             hq_quiver_min_accuracy=args.hq_quiver_min_accuracy,
@@ -241,6 +249,7 @@ def tofu_wrap_main():
             hq_isoforms_fq=args.hq_isoforms_fq,
             lq_isoforms_fa=args.lq_isoforms_fa,
             lq_isoforms_fq=args.lq_isoforms_fq)
+
     # ex: all_quivered_hq.100_30_0.99.fastq
     quiver_hq_filename = "all_quivered_hq.{0}_{1}_{2:.2f}.fastq".format(\
             args.qv_trim_5,args.qv_trim_3,args.hq_quiver_min_accuracy)

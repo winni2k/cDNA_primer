@@ -78,7 +78,7 @@ class PBTranscript(PBMultiToolRunner):
                         'quality controlled non-chimeric, ' +
                         'full length reads to reference genome.')
         # Add arguments for subcommand cluster
-        add_cluster_arguments(parser)
+        add_cluster_arguments(parser, show_sge_env_name=True, show_sge_queue=True)
 
         parser = subparsers.add_parser(
             'subset',
@@ -123,7 +123,10 @@ class PBTranscript(PBMultiToolRunner):
                                       use_sge=self.args.use_sge,
                                       max_sge_jobs=self.args.max_sge_jobs,
                                       blasr_nproc=self.args.blasr_nproc,
-                                      quiver_nproc=self.args.quiver_nproc)
+                                      quiver_nproc=self.args.quiver_nproc,
+                                      gcon_nproc=self.args.gcon_nproc,
+                                      sge_env_name=self.args.sge_env_name,
+                                      sge_queue=self.args.sge_queue)
                 ipq_opts = IceQuiverHQLQOptions(qv_trim_5=self.args.qv_trim_5,
                                                 qv_trim_3=self.args.qv_trim_3,
                                                 hq_quiver_min_accuracy=self.args.hq_quiver_min_accuracy,

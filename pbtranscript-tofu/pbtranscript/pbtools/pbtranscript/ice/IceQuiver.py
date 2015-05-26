@@ -3,6 +3,7 @@
 """Call quiver to polish consensus isoforms created by ICE."""
 
 import os.path as op
+import time, datetime
 import random
 import logging
 import shutil
@@ -214,11 +215,9 @@ class IceQuiver(IceFiles):
                         bin_ref_fa_writer.write(">{0}\n{1}\n".
                                                 format(name, seq))
                     else:
-                        self.add_log("ignoring {0} because identical " +
-                                     "sequence!".format(cid))
+                        self.add_log("ignoring {0} because identical sequence!".format(cid))
                 else:
-                    self.add_log(
-                        "ignoring {0} because no alignments!".format(cid))
+                    self.add_log("ignoring {0} because no alignments!".format(cid))
 
         if len(valid_sam_files) == 0:
             self.add_log("No alignments were found for clusters between " +
@@ -297,7 +296,7 @@ class IceQuiver(IceFiles):
                      quiver_nproc, number of nproc per job
                      unique_id, unique id to name qsub jobs
         """
-        self.add_log("Submitting todo quiver jobs.")
+        time0 = datetime.now()
         if sge_opts.use_sge is not True or \
            sge_opts.max_sge_jobs == 0:  # don't use SGE
             for job in todo:
@@ -323,9 +322,11 @@ class IceQuiver(IceFiles):
                     jid = "ice_quiver_{unique_id}_{name}".format(
                         unique_id=self.sge_opts.unique_id,
                         name=op.basename(job))
-                    qsub_cmd = "qsub " + \
-                               "-pe smp {n} ".\
-                               format(n=sge_opts.quiver_nproc) + \
+
+                    qsub_cmd = "qsub"
+                    if self.sge_opts.sge_queue is not None:
+                        qsub_cmd += " -q " + self.sge_opts.sge_queue
+                    qsub_cmd += " -pe {env} {n} ".format(n=sge_opts.quiver_nproc, env=sge_opts.sge_env_name) + \
                                "-cwd -S /bin/bash -V " + \
                                "-e {elog} ".format(elog=real_upath(elog)) +\
                                "-o {olog} ".format(olog=real_upath(olog)) +\
@@ -338,6 +339,7 @@ class IceQuiver(IceFiles):
                 # end of for job in todo[:n]
             # end of while len(todo) > 0
         # end of else (use sge)
+        self.add_log("Total time submitting todo quiver jobs: {0}".format(datetime.now()-time0))
 
     def create_a_quiver_bin(self, cids, d, uc, partial_uc, refs, sge_opts):
         """Put clusters in cids together into a bin. In order to polish
@@ -358,8 +360,10 @@ class IceQuiver(IceFiles):
               * or execute scripts sequentially on local machine
         """
         # For each cluster in bin, create its raw subreads fasta file.
+        time0 = datetime.now()
         self.create_raw_fas_for_clusters_in_bin(cids=cids, d=d, uc=uc,
                                                 partial_uc=partial_uc)
+        self.add_log("Total time for create_raw_fas_for_clusters_in_bin: {0}".format(datetime.now()-time0))
 
         # For each cluster in bin, align its raw subreads to ref to build a sam
         self.create_sams_for_clusters_in_bin(cids=cids, refs=refs)
@@ -406,14 +410,18 @@ class IceQuiver(IceFiles):
         all_todo = []
         for i in xrange(start, end, 100):  # Put every 100 clusters to a bin
             cids = keys[i:min(end, i + 100)]
+            time0 = time.time()
             bin_sh = self.create_a_quiver_bin(cids=cids, d=d, uc=uc,
                                               partial_uc=partial_uc,
                                               refs=refs, sge_opts=sge_opts)
             all_todo += bin_sh
+            self.add_log("DEBUG: Total time for create_a_quiver_bin: {0}".format(time.time()-time0))
             # assert bin_sh == self.script_of_quivered_bin(first, last)
             # submit the created script of this quiver bin
+            time1 = time.time()
             self.submit_todo_quiver_jobs(todo=[bin_sh], submitted=submitted,
                                          sge_opts=sge_opts)
+            self.add_log("DEBUG: Total time for submit_todo_quiver_jobs: {0}".format(time.time()-time1))
         # end of for i in xrange(start, end, 100):
         return all_todo
 

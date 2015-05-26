@@ -134,23 +134,21 @@ def pbdagcon_wrapper(fasta_filename, output_prefix, consensus_name, nproc=8, max
     (2) Align rest to seed
     (3) Call pbdagcon
     """
+    ref_filename = output_prefix + '_ref.fasta'
     try:
         ref = choose_template_by_blasr(fasta_filename, nproc=nproc, maxScore=maxScore)
-
-        ref_filename = output_prefix + '_ref.fa'
         with open(ref_filename, 'w') as f:
             f.write(">{0}\n{1}".format(consensus_name, ref.sequence))
 
         # create alignment file
         aln_filename = make_aln_input_to_ref(fasta_filename, ref_filename, nproc=nproc)
 
-        cons_filename = output_prefix + '.fa'
+        cons_filename = output_prefix + '.fasta'
         # call pbdagcon
         cmd = "pbdagcon -t 0 -m {minlen} -c 1 -j {nproc} {aln} > {out}".format(\
             minlen=min_seq_len, nproc=nproc, aln=aln_filename, out=cons_filename)
         if subprocess.check_call(cmd, shell=True):
             raise AlignGraphUtilError, "Cannot run command:", cmd
-
     except AlignGraphUtilError:
         # pick the first sequence as reference as a backup plan
         first_seq = FastaReader(fasta_filename).__iter__().next()

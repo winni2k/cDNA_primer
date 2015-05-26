@@ -165,14 +165,13 @@ def pbdagcon_wrapper(fasta_filename, output_prefix,
     (2) Align rest to seed
     (3) Call pbdagcon
     """
+    ref_filename = output_prefix + '_ref.fasta'
     try:
         out_filename_m1 = output_prefix + ".saln.m1"
         ref = choose_template_by_blasr(fasta_filename=fasta_filename,
                                        out_filename=out_filename_m1,
                                        nproc=nproc, maxScore=maxScore)
         os.remove(out_filename_m1)
-
-        ref_filename = output_prefix + '_ref.fa'
         with open(ref_filename, 'w') as f:
             f.write(">{0}\n{1}\n".format(consensus_name, ref.sequence))
 
@@ -183,7 +182,7 @@ def pbdagcon_wrapper(fasta_filename, output_prefix,
                               out_filename=aln_filename,
                               nproc=nproc)
 
-        cons_filename = output_prefix + '.fa'
+        cons_filename = output_prefix + '.fasta'
         tmp_cons_filename = output_prefix + '.fa.tmp'
         # call pbdagcon
         cmd = "pbdagcon -t 0 -m {minlen} -c 1 -j {nproc} {aln} > {out}".format(

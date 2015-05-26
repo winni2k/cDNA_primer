@@ -148,13 +148,14 @@ class IceAllPartials(IceFiles):
         self.add_log("Mapping non-full-length reads to consensus isoforms.")
         self.add_log("Creating pickles...", level=logging.INFO)
 
+        # using --blasr_nproc=4 because DALIGNER uses only 4 cores
         for idx, fa in enumerate(self.fasta_filenames):
             # for each splitted non-full-length reads fasta file, build #
             # partial_uc.pickle
             cmd = "ice_partial.py one {i} ".format(i=real_upath(fa)) + \
                   "{r} ".format(r=real_upath(self.ref_fasta)) + \
                   "{o} ".format(o=real_upath(self.pickle_filenames[idx])) + \
-                  "--blasr_nproc={n} ".format(n=self.sge_opts.blasr_nproc) + \
+                  "--blasr_nproc={n} ".format(n=4) + \
                   "--done={d} ".format(d=real_upath(self.done_filenames[idx]))
             if self.ccs_fofn is not None:
                 cmd += "--ccs_fofn={f} ".format(f=real_upath(self.ccs_fofn))
@@ -176,8 +177,10 @@ class IceAllPartials(IceFiles):
                 unique_id=self.sge_opts.unique_id,
                 name=op.basename(fa))
 
-            qsub_cmd = "qsub " + \
-                       "-pe smp {n} ".format(n=self.sge_opts.blasr_nproc) + \
+            qsub_cmd = "qsub"
+            if self.sge_opts.sge_queue is not None:
+                qsub_cmd += " -q " + self.sge_opts.sge_queue
+            qsub_cmd += " -pe {env} {n} ".format(env=self.sge_opts.sge_env_name, n=4) + \
                        "-cwd -S /bin/bash -V " + \
                        "-e {elog} ".format(elog=real_upath(elog)) + \
                        "-o {olog} ".format(olog=real_upath(olog)) + \

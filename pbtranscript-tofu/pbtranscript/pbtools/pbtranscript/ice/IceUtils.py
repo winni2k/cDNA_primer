@@ -51,7 +51,7 @@ def sanity_check_sge(scriptDir, testDirName="gcon_test_dir"):
         os.makedirs(testDir)
 
     testSh = op.join(scriptDir, 'test.sh')
-    consensusFa = op.join(testDir, "g_consensus.fa")
+    consensusFa = op.join(testDir, "g_consensus.fasta")
     testInFa = op.join(testDir, "gcon_in.fa")
     if op.exists(testInFa):
         os.remove(testInFa)
@@ -87,6 +87,7 @@ def sanity_check_sge(scriptDir, testDirName="gcon_test_dir"):
         shutil.rmtree(testDir)
         logging.info("sge and gcon check passed.")
         return True
+
 
 def get_ece_arr_from_alignment(record):
     """
@@ -295,19 +296,19 @@ def possible_merge(r, ece_penalty, ece_min_len):
     """
     r --- BLASRM5Record
     Criteria:
-    (1) identity >= 99% and same strand
+    (1) identity >= 90% and same strand
     (2) check criteria for how much is allowed to differ on the
         5' / 3' ends
 
-    NOTE: 100 bp on 5' and 30 bp on 3' leniency is now HARD-CODED!
+    NOTE: 200 bp on 5' and 50 bp on 3' leniency is now HARD-CODED!
     Should change later
     """
-    if r.sID == r.qID or r.identity < 99 or r.strand == '-':
+    if r.sID == r.qID or r.identity < 90 or r.strand == '-':
         return False
     # intentional here to prevent disrupting future ICE runs
     # MORE lenient on 5' but NOT on 3'
-    if ((r.qLength - r.qEnd) > 30 or (r.sLength - r.sEnd) > 30 or
-            r.qStart > 100 or r.sStart > 100):
+    if ((r.qLength - r.qEnd) > 50 or (r.sLength - r.sEnd) > 50 or
+            r.qStart > 200 or r.sStart > 200):
         return False
 
     arr = np.array([(x == '*') * 1 for x in r.alnStr])

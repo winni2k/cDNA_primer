@@ -170,10 +170,13 @@ cdef double calc_aln_log_prob2(list prob_err, int n,
     cdef int i, cur_q_pos
     cdef double score, tmp, one_three
 
+    cdef int max_pos = len(prob_err)
     one_three = log(1 / 3.)
     cur_q_pos = qStart
     score = 0.
     for x in fakecigar:
+        if cur_q_pos >= max_pos: # ToDo: this is a bug caused by daligner coordinates issues, FIX LATER instead of just returning as done here
+            return score
         if x == 'M':
             tmp = 1 - prob_err[cur_q_pos] 
             # sanity check...sometimes this can have < 0 prob,

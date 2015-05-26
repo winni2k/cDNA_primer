@@ -7,13 +7,15 @@ class SgeOptions(object):
     """Define options to configure SGE."""
 
     def __init__(self, unique_id, use_sge=False, max_sge_jobs=40,
-                 blasr_nproc=24, gcon_nproc=8, quiver_nproc=8):
+                 blasr_nproc=24, gcon_nproc=8, quiver_nproc=8, sge_env_name='smp', sge_queue=None):
         self.unique_id = unique_id
         self.use_sge = use_sge
         self.max_sge_jobs = max_sge_jobs
         self.blasr_nproc = blasr_nproc
         self.gcon_nproc = gcon_nproc
         self.quiver_nproc = quiver_nproc
+        self.sge_env_name = sge_env_name
+        self.sge_queue = sge_queue
 
     def __str__(self):
         return "unqiueID={i}\n".format(i=self.unique_id) + \
@@ -21,10 +23,12 @@ class SgeOptions(object):
                "max_sge_jobs={j}\n".format(j=self.max_sge_jobs) + \
                "blasr_nproc={n}\n".format(n=self.blasr_nproc) + \
                "gcon_nproc={n}\n".format(n=self.gcon_nproc) + \
-               "quiver_nproc={t}\n".format(t=self.quiver_nproc)
+               "quiver_nproc={t}\n".format(t=self.quiver_nproc) + \
+               "sge_env_name={0}\n".format(self.sge_env_name) + \
+               "sge_queue={0}\n".format(self.sge_queue)
 
     def cmd_str(self, show_blasr_nproc=False, show_gcon_nproc=False,
-                show_quiver_nproc=False):
+                show_quiver_nproc=False, show_sge_env_name=False, show_sge_queue=False):
         """Return a cmd string."""
         cmd = ""
         if self.use_sge is True:
@@ -37,6 +41,10 @@ class SgeOptions(object):
             cmd += "--gcon_nproc={n} ".format(n=self.gcon_nproc)
         if show_quiver_nproc is True and self.quiver_nproc is not None:
             cmd += "--quiver_nproc={n} ".format(n=self.quiver_nproc)
+        if show_sge_env_name:
+            cmd += "--sge_env_name={0}".format(self.sge_env_name)
+        if show_sge_queue and self.sge_queue is not None:
+            cmd += "--sge_queue={0}".format(self.sge_queue)
         return cmd
 
 
@@ -71,6 +79,18 @@ class IceOptions(object):
                              format(cs=self.cDNA_size))
         d = {"under1k": -1000, "between1k2k": -2000, "between2k3k": -3000,
              "above3k": -5000}
+        return d[self.cDNA_size]
+
+    @property
+    def minLength(self):
+        """
+        Used by daligner for minimum length
+        """
+        if self.cDNA_size not in IceOptions.cDNA_sizeBins():
+            raise ValueError("Invalid cDNA size: {cs}".
+                             format(cs=self.cDNA_size))
+        d = {"under1k": 300, "between1k2k": 800, "between2k3k": 1500,
+             "above3k": 2500}
         return d[self.cDNA_size]
 
     def __str__(self):

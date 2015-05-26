@@ -34,7 +34,7 @@ class IceInit(object):
             ice_opts=ice_opts, sge_opts=sge_opts)
 
     # OBSOLETE version using BLASR
-    # def _align(self, queryFa, targetFa, outFN, ice_opts, sge_opts):
+    # def d(self, queryFa, targetFa, outFN, ice_opts, sge_opts):
     #     """Align input reads against itself using BLASR."""
     #     if os.path.exists(outFN):
     #         logging.info("{0} already exists. No need to run BLASR.".
@@ -64,7 +64,7 @@ class IceInit(object):
         runner = DalignerRunner(queryFa, queryFa, is_FL=True, same_strand_only=True, \
                             query_converted=True, db_converted=True, query_made=True, \
                             db_made=True, use_sge=False, cpus=4)
-        las_filenames, las_out_filenames = runner.runHPC(min_match_len=800, output_dir=output_dir)
+        las_filenames, las_out_filenames = runner.runHPC(min_match_len=300, output_dir=output_dir)
         return input_obj, las_out_filenames
 
 
@@ -140,7 +140,8 @@ class IceInit(object):
             # index of the 'node' in the sub-graph
             seed_i = subNodes.index(node)
             # Grasp a clique from subGraph, and return indices of clique nodes
-            tQ = pClique.grasp(S, H, 1., 5, seed_i)
+            # setting gamma=0.8 means to find quasi-0.8-cliques!
+            tQ = pClique.grasp(S, H, gamma=0.8, maxitr=5, given_starting_node=seed_i)
             if len(tQ) > 0:
                 c = [subNodes[i] for i in tQ]  # nodes in the clique
                 uc[ind] = c  # Add the clique to uc

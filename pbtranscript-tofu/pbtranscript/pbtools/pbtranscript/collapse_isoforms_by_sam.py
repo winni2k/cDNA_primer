@@ -43,7 +43,7 @@ from pbtools.pbtranscript.branch import branch_simple2
 from pbcore.io.FastaIO import FastaWriter
 from pbcore.io.FastqIO import FastqWriter
 
-def pick_rep(fa_fq_filename, gff_filename, group_filename, output_filename, is_fq=False, pick_least_err_instead=False):
+def pick_rep(fa_fq_filename, gff_filename, group_filename, output_filename, is_fq=False, pick_least_err_instead=False, bad_gff_filename=None):
     """
     For each group, select the representative record
 
@@ -66,6 +66,13 @@ def pick_rep(fa_fq_filename, gff_filename, group_filename, output_filename, is_f
         if raw[2] == 'transcript': 
             tid = raw[-1].split('; ')[1].split()[1][1:-2]
             coords[tid] = "{0}:{1}-{2}({3})".format(raw[0], raw[3], raw[4], raw[6])
+
+    if bad_gff_filename is not None:
+        for line in open(bad_gff_filename):
+            raw = line.strip().split('\t')
+            if raw[2] == 'transcript':
+                tid = raw[-1].split('; ')[1].split()[1][1:-2]
+                coords[tid] = "{0}:{1}-{2}({3})".format(raw[0], raw[3], raw[4], raw[6])
 
     for line in open(group_filename):
         pb_id, members = line.strip().split('\t')
@@ -108,17 +115,29 @@ def main(args):
     check_ids_unique(args.input, is_fq=args.fq)
     
     ignored_fout = open(args.prefix + '.ignored_ids.txt', 'w')
-    f_gff = open(args.prefix + '.collapsed.gff', 'w')
+
+    if args.flnc_coverage > 0:
+        f_good = open(args.prefix + '.collapsed.good.gff', 'w')
+        f_bad = open(args.prefix + '.collapsed.bad.gff', 'w')
+        cov_threshold = args.flnc_coverage
+    else:
+        f_good = open(args.prefix + '.collapsed.gff', 'w')
+        f_bad = f_good
+        cov_threshold = 1
     f_txt = open(args.prefix + '.collapsed.group.txt', 'w')
     
-    b = branch_simple2.BranchSimple(args.input, cov_threshold=1, min_aln_coverage=args.min_aln_coverage, min_aln_identity=args.min_aln_identity, is_fq=args.fq)
+    b = branch_simple2.BranchSimple(args.input, cov_threshold=cov_threshold, min_aln_coverage=args.min_aln_coverage, min_aln_identity=args.min_aln_identity, is_fq=args.fq)
     iter = b.iter_gmap_sam(args.sam, ignored_fout)
     for recs in iter:
         for v in recs.itervalues():
-            if len(v) > 0: b.process_records(v, args.allow_extra_5exon, False, f_gff, f_gff, f_txt)
+            if len(v) > 0: b.process_records(v, args.allow_extra_5exon, False, f_good, f_bad, f_txt)
     
     ignored_fout.close()
-    f_gff.close()
+    f_good.close()
+    try:
+        f_bad.close()
+    except:
+        pass
     f_txt.close()
     
     if args.fq:
@@ -126,13 +145,13 @@ def main(args):
     else:
         outfile = args.prefix+".collapsed.rep.fa"
     if args.allow_extra_5exon: # 5merge, pick longest
-        pick_rep(args.input, f_gff.name, f_txt.name, outfile, is_fq=args.fq, pick_least_err_instead=False)
+        pick_rep(args.input, f_good.name, f_txt.name, outfile, is_fq=args.fq, pick_least_err_instead=False, bad_gff_filename=f_bad.name)
     else:
-        pick_rep(args.input, f_gff.name, f_txt.name, outfile, is_fq=args.fq, pick_least_err_instead=True)
+        pick_rep(args.input, f_good.name, f_txt.name, outfile, is_fq=args.fq, pick_least_err_instead=True, bad_gff_filename=f_bad.name)
     
     print >> sys.stderr, "Ignored IDs written to:", ignored_fout.name
     print >> sys.stderr, "Output written to:"
-    print >> sys.stderr, f_gff.name
+    print >> sys.stderr, f_good.name
     print >> sys.stderr, f_txt.name
     print >> sys.stderr, outfile
     print >> sys.stderr, args
@@ -148,6 +167,7 @@ if __name__ == "__main__":
     parser.add_argument("-o", "--prefix", required=True, help="Output filename prefix")
     parser.add_argument("-c", "--min-coverage", dest="min_aln_coverage", type=float, default=.99, help="Minimum alignment coverage (default: 0.99)")
     parser.add_argument("-i", "--min-identity", dest="min_aln_identity", type=float, default=.85, help="Minimum alignment identity (default: 0.85)")
+    parser.add_argument("--flnc_coverage", dest="flnc_coverage", type=int, default=-1, help="Minimum # of FLNC reads, only use this for aligned FLNC reads, otherwise results undefined!")
     parser.add_argument("--dun-merge-5-shorter", action="store_false", dest="allow_extra_5exon", default=True, help="Don't collapse shorter 5' transcripts (default: turned off)")
     
     args = parser.parse_args()

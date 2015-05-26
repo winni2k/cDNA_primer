@@ -91,7 +91,7 @@ def build_uc_from_partial_daligner(input_fasta, ref_fasta, out_pickle,
     runner = DalignerRunner(input_fasta, ref_fasta, is_FL=False, same_strand_only=False, \
                             query_converted=True, db_converted=True, query_made=False, \
                             db_made=True, use_sge=False, cpus=cpus)
-    las_filenames, las_out_filenames = runner.runHPC(min_match_len=800, output_dir=output_dir)
+    las_filenames, las_out_filenames = runner.runHPC(min_match_len=300, output_dir=output_dir)
 
     if no_qv_or_aln_checking:
         # not using QVs or alignment checking!
@@ -338,16 +338,19 @@ def add_ice_partial_one_arguments(parser):
                              "ref_consensus.fa from ICE output")
     parser.add_argument("out_pickle", type=str, help="Output pickle files.")
     parser = add_fofn_arguments(parser, ccs_fofn=True)
-    parser.add_argument("--sa", dest="sa_file", default=None,
-                        help="Suffix array of ref_fasta")
     parser.add_argument("--done", dest="done_filename", type=str,
                         help="An empty file generated to indicate that " +
                              "out_pickle is done.")
+    parser.add_argument("--use_finer_qv", action="store_true", default=False,
+                        help="Use finer QV which uses more memory & time [default: False]")
+
+# ToDo: comment OUT BLASR-related arguments; using DALIGNER
+    parser.add_argument("--sa", dest="sa_file", default=None,
+                        help="Suffix array of ref_fasta")
     parser.add_argument("--blasr_nproc", dest="blasr_nproc",
                         type=int, default=12,
                         help="blasr -nproc, number of CPUs [default: 12]")
-    parser.add_argument("--use_finer_qv", action="store_true", default=False,
-                        help="Use finer QV which uses more memory & time [default: False]")
+
     return parser
 
 

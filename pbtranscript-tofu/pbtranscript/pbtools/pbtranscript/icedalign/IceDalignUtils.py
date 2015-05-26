@@ -168,7 +168,7 @@ class DalignerRunner:
                 if self.query_filename == self.db_filename and i > j:
                     continue
 
-                cmd = "daligner -h35 -e.80 -l{m} -s100 -t10 {q}.{i} {db}.{j}".format(\
+                cmd = "daligner -h35 -k12 -e.70 -l{m} -s100 -t10 {q}.{i} {db}.{j}".format(\
                     q=self.query_dazz_handler.dazz_filename, i=i+1, \
                     db=self.db_dazz_handler.dazz_filename, j=j+1, \
                     m=min_match_len)

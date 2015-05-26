@@ -173,18 +173,18 @@ class Cluster(IceFiles):
     def _setProbQV_ccs(self, ccs_fofn, firstSplitFa):
         """Set ProbQV from .ccs.h5"""
         start_t = time.time()
+        self._probqv = ProbFromQV(ccs_fofn, firstSplitFa)
         self.add_log("Loading QVs from {f} + {c} took {t} sec.".
                 format(f=firstSplitFa, c=ccs_fofn, t=time.time()-start_t),
                 level=logging.INFO)
-        self._probqv = ProbFromQV(ccs_fofn, firstSplitFa)
 
     def _setProbQV_fq(self, firstSplitFq=None):
         """Set probability and quality values from FASTQ"""
         start_t = time.time()
+        self._probqv = ProbFromFastq(firstSplitFq)
         self.add_log("Loading QVs from {f} took {t} sec.".
                 format(f=firstSplitFq, t=time.time()-start_t),
                 level=logging.INFO)
-        self._probqv = ProbFromFastq(firstSplitFq)
 
     def run(self):
         """Call ICE to cluster consensus isoforms."""
@@ -219,19 +219,24 @@ class Cluster(IceFiles):
             self._setProbQV_fq(firstSplitFq=firstSplit_fq)
 
         # Initialize cluster by clique
-        self.add_log("Finding maximal cliques: initializing IceInit.",
-                     level=logging.INFO)
-        self.iceinit = IceInit(readsFa=firstSplit,
-                               qver_get_func=self._probqv.get_smoothed,
-                               ice_opts=self.ice_opts,
-                               sge_opts=self.sge_opts)
-        uc = self.iceinit.uc
+        if os.path.exists(self.initPickleFN):
+            self.add_log("Reading existing uc pickle: {0}".format(self.initPickleFN), level=logging.INFO)
+            with open(self.initPickleFN) as f:
+                uc = cPickle.load(f)
+        else:
+            self.add_log("Finding maximal cliques: initializing IceInit.",
+                         level=logging.INFO)
+            self.iceinit = IceInit(readsFa=firstSplit,
+                                   qver_get_func=self._probqv.get_smoothed,
+                                   ice_opts=self.ice_opts,
+                                   sge_opts=self.sge_opts)
+            uc = self.iceinit.uc
 
-        # Dump uc to a file
-        self.add_log("Dumping initial clusters to {f}".format(
-                     f=self.initPickleFN), level=logging.INFO)
-        with open(self.initPickleFN, 'w') as f:
-            cPickle.dump(uc, f)
+            # Dump uc to a file
+            self.add_log("Dumping initial clusters to {f}".format(
+                         f=self.initPickleFN), level=logging.INFO)
+            with open(self.initPickleFN, 'w') as f:
+                cPickle.dump(uc, f)
 
         # Run IceIterative.
         self.add_log("Iterative clustering: initializing IceIterative.",

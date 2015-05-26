@@ -191,7 +191,7 @@ def add_ice_arguments(parser):
     return parser
 
 
-def add_sge_arguments(parser, blasr_nproc=False, quiver_nproc=False):
+def add_sge_arguments(parser, blasr_nproc=False, quiver_nproc=False, gcon_nproc=False, sge_env_name=False, sge_queue=False):
     """Add Sge arguments as a group to parser, return parser."""
     sge_group = parser.add_argument_group("SGE environment arguments")
 
@@ -222,13 +222,34 @@ def add_sge_arguments(parser, blasr_nproc=False, quiver_nproc=False):
                                dest="blasr_nproc",
                                action="store",
                                default=24,
-                               help="Number of cores for each BLASR job.")
+                               help="Number of cores for each BLASR job. (default: 24)")
     if quiver_nproc is True:
         sge_group.add_argument("--quiver_nproc",
                                dest="quiver_nproc",
                                type=int,
                                default=8,
-                               help="Number of CPUs each quiver job uses.")
+                               help="Number of CPUs for each Quiver job. (default: 8)")
+
+    if gcon_nproc is True:
+        sge_group.add_argument("--gcon_nproc",
+                               dest="gcon_nproc",
+                               type=int,
+                               default=4,
+                               help="Number of CPUs for each PBDagcon job. (default: 4)")
+
+    if sge_env_name:
+        sge_group.add_argument("--sge_env_name",
+                               dest="sge_env_name",
+                               type=str,
+                               default='smp',
+                               help="SGE parallel env name (default: smp)")
+
+    if sge_queue:
+        sge_group.add_argument("--sge_queue",
+                               dest="sge_queue",
+                               type=str,
+                               default=None,
+                               help="SGE queue name (default: not specified, use SGE default)")
     return parser
 
 
@@ -377,7 +398,7 @@ def add_cluster_summary_report_arguments(parser):
     return parser
 
 
-def add_cluster_arguments(parser):
+def add_cluster_arguments(parser, show_sge_env_name=False, show_sge_queue=False):
     """Add arguments for subcommand `cluster`."""
     parser = add_flnc_fa_argument(parser, positional=True)
 
@@ -404,7 +425,7 @@ def add_cluster_arguments(parser):
     parser = add_ice_arguments(parser)
 
     # Add Sge options
-    parser = add_sge_arguments(parser, blasr_nproc=True, quiver_nproc=True)
+    parser = add_sge_arguments(parser, blasr_nproc=True, quiver_nproc=True, gcon_nproc=True, sge_env_name=show_sge_env_name, sge_queue=show_sge_queue)
 
     # Add IceQuiver HQ/LQ options.
     parser = add_ice_post_quiver_hq_lq_arguments(parser)

@@ -232,13 +232,13 @@ def iter_gmap_sam_for_fusion(gmap_sam_filename, fusion_candidates, transfrag_len
         yield(sep_by_strand(records))
 
 
-def find_fusion_candidates(sam_filename, query_len_dict, min_locus_coverage=.05, min_total_coverage=.99, min_dist_between_loci=100000):
+def find_fusion_candidates(sam_filename, query_len_dict, min_locus_coverage=.05, min_total_coverage=.99, min_dist_between_loci=10000):
     """
     Return list of fusion candidates qIDs
     (1) must map to 2 or more loci
     (2) minimum coverage for each loci is 5%
     (3) total coverage is >= 95%
-    (4) distance between the loci is at least 100kb
+    (4) distance between the loci is at least 10kb
     """
     TmpRec = namedtuple('TmpRec', ['qCov', 'qLen', 'qStart', 'qEnd', 'sStart', 'sEnd', 'iden'])
     def total_coverage(tmprecs):
@@ -266,7 +266,7 @@ def find_fusion_candidates(sam_filename, query_len_dict, min_locus_coverage=.05,
                     fusion_candidates.append(k)
     return fusion_candidates
 
-def fusion_main(fa_or_fq_filename, sam_filename, output_prefix, is_fq=False, allow_extra_5_exons=True, skip_5_exon_alt=True, prefix_dict_pickle_filename=None):
+def fusion_main(fa_or_fq_filename, sam_filename, output_prefix, is_fq=False, allow_extra_5_exons=True, skip_5_exon_alt=True, prefix_dict_pickle_filename=None, min_locus_coverage=.05, min_total_coverage=.99, min_dist_between_loci=10000):
     """
     (1) identify fusion candidates (based on mapping, total coverage, identity, etc)
     (2) group/merge the fusion exons, using an index to point to each individual part
@@ -285,7 +285,8 @@ def fusion_main(fa_or_fq_filename, sam_filename, output_prefix, is_fq=False, all
 
     # step (1). identify fusion candidates
     bs = branch_simple2.BranchSimple(fa_or_fq_filename, is_fq=is_fq)
-    fusion_candidates = find_fusion_candidates(sam_filename, bs.transfrag_len_dict)
+    pdb.set_trace()
+    fusion_candidates = find_fusion_candidates(sam_filename, bs.transfrag_len_dict, min_locus_coverage, min_total_coverage, min_dist_between_loci)
 
     # step (2). merge the fusion exons
     for recs in iter_gmap_sam_for_fusion(sam_filename, fusion_candidates, bs.transfrag_len_dict):
@@ -373,9 +374,16 @@ if __name__ == "__main__":
     parser.add_argument("-o", "--prefix", required=True, help="Output filename prefix")
     parser.add_argument("--dun-merge-5-shorter", action="store_false", dest="allow_extra_5exon", default=True, help="Don't collapse shorter 5' transcripts (default: turned off)")
     parser.add_argument("--prefix_dict_pickle_filename", default=None, help="Quiver HQ/LQ Pickle filename for generating count information (optional)")
-    
+    parser.add_argument("-c", "--min_locus_coverage", type=float, default=0.05, help="Minimum per-locus coverage (default: 0.05)")
+    parser.add_argument("-t", "--min_total_coverage", type=float, default=0.99, help="Minimum total coverage (default: 0.99)")
+    parser.add_argument("-d", "--min_dist_between_loci", type=int, default=10000, help="Minimum distance between loci, in bp (default: 10000)")
+
     args = parser.parse_args()
 
-    fusion_main(args.input, args.sam, args.prefix, is_fq=args.fq, allow_extra_5_exons=args.allow_extra_5exon, skip_5_exon_alt=False, prefix_dict_pickle_filename=args.prefix_dict_pickle_filename)
+    fusion_main(args.input, args.sam, args.prefix,
+                is_fq=args.fq, allow_extra_5_exons=args.allow_extra_5exon,
+                skip_5_exon_alt=False, prefix_dict_pickle_filename=args.prefix_dict_pickle_filename,
+                min_locus_coverage=args.min_locus_coverage, min_total_coverage=args.min_total_coverage,
+                min_dist_between_loci=args.min_dist_between_loci)
 
 

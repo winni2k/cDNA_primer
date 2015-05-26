@@ -5,6 +5,7 @@ including temporary results, output files, scripts and logs.
 """
 import os.path as op
 import logging
+from multiprocessing import Process
 from pbcore.util.Process import backticks
 from pbcore.io import FastaReader
 from pbtools.pbtranscript.Utils import real_ppath, now_str, mkdir
@@ -231,8 +232,8 @@ class IceFiles(object):
         The error message to display should look like:
             Failed to qsub CMD to SGE: {cmd}, {msg}\n
         """
-        msg = "Submitting CMD: {cmd}".format(cmd=cmd)
-        self.add_log(msg)
+        #msg = "Submitting CMD: {cmd}".format(cmd=cmd)
+        #self.add_log(msg)
         _out, _code, _msg = backticks(cmd)
         if _code != 0:
             errMsg = "Failed to qsub CMD: {cmd}, {msg}.".\
@@ -253,8 +254,8 @@ class IceFiles(object):
             {description}\n
             Error log: {elog}\n
         """
-        msg = "Running CMD: {cmd}".format(cmd=cmd)
-        self.add_log(msg)
+        #msg = "Running CMD: {cmd}".format(cmd=cmd)
+        #self.add_log(msg)
         _out, _code, _msg = backticks(cmd)
         if _code != 0:
             errMsgs = ["CMD exited with a non-zero code: {cmd}, {msg}".
@@ -321,3 +322,32 @@ class IceFiles(object):
             errMsg = "No consensus isoforms predicted."
             self.add_log(errMsg, level=logging.ERROR)
             raise RuntimeError(errMsg)
+
+
+def wait_for_sge_jobs_worker(cmd):
+    _out, _code, _msg = backticks(cmd)
+    if _code != 0:
+        errMsg = "Failed to qsub CMD: {cmd}, {msg}.".\
+            format(cmd=cmd, msg=_msg)
+        raise RuntimeError(errMsg)
+    # Your job 596028 ("a.sh") has been submitted
+    return str(_out).split()[2]
+
+def wait_for_sge_jobs(cmd, jids, timeout):
+    """
+    This replaces the original qsub -sync y -hold_jid j1,j2..... command
+    which can still be hung if certain jobs got stuck.
+
+    If timeout occurs, simply qdel all jids (ignoring whether they exist or not)
+    and let the main function that calls it handle what to do
+    """
+    p = Process(target=wait_for_sge_jobs_worker, args=(cmd,))
+    p.start()
+    p.join(timeout)
+    if p.is_alive(): # timed out
+        for jid in jids:
+            kill_cmd = "qdel " + str(jid)
+            backticks(kill_cmd) # don't care whether it worked
+        return "TIMEOUT"
+    return "SUCCESS"
+
