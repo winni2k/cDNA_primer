@@ -51,6 +51,8 @@ def pickup_icec_job(pickle_filename, ccs_fofn, flnc_filename, fasta_files_to_add
     # first must RE-RUN gcon to get all the proper refs
     icec.changes = set()
     icec.refs = {}
+    icec.ccs_fofn = ccs_fofn
+    icec.all_fasta_filename = flnc_filename
     todo = icec.uc.keys()
     print >> sys.stderr, "Re-run gcon for proper refs...."
     icec.run_gcon_parallel(todo)

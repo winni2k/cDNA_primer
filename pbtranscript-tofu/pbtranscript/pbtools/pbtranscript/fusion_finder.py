@@ -285,7 +285,6 @@ def fusion_main(fa_or_fq_filename, sam_filename, output_prefix, is_fq=False, all
 
     # step (1). identify fusion candidates
     bs = branch_simple2.BranchSimple(fa_or_fq_filename, is_fq=is_fq)
-    pdb.set_trace()
     fusion_candidates = find_fusion_candidates(sam_filename, bs.transfrag_len_dict, min_locus_coverage, min_total_coverage, min_dist_between_loci)
 
     # step (2). merge the fusion exons

@@ -3,19 +3,21 @@
 """Call quiver to polish consensus isoforms created by ICE."""
 
 import os.path as op
-import time, datetime
+import time
+from datetime import datetime
 import random
 import logging
 import shutil
 from cPickle import load
 from math import ceil
 from collections import defaultdict
+from multiprocessing.pool import ThreadPool
 from pbtools.pbtranscript.PBTranscriptOptions import  add_fofn_arguments, \
     add_sge_arguments, add_cluster_root_dir_as_positional_argument
 from pbtools.pbtranscript.Utils import mkdir, real_upath, nfs_exists
 from pbtools.pbtranscript.ice.IceUtils import get_the_only_fasta_record, \
     get_files_from_fofn, is_blank_sam, concat_sam, \
-    blasr_sam_for_quiver, write_in_raw_fasta
+    blasr_sam_for_quiver, write_in_raw_fasta, write_in_raw_fasta_starhelper
 from pbtools.pbtranscript.ice.IceFiles import IceFiles
 from pbtools.pbtranscript.io.FastaRandomReader import MetaSubreadFastaReader
 
@@ -131,6 +133,8 @@ class IceQuiver(IceFiles):
         
         (Liz) for Quiver, subsample down to max 100 (with uc having priority over partial_uc)
         """
+        #data_queue = []
+        #fake_func = lambda x: x
         for k in cids:  # for each cluster k
 
             # $root_dir/tmp/?/c{k}/in.raw_with_partial.fa
@@ -142,10 +146,15 @@ class IceQuiver(IceFiles):
             else:
                 in_seqids += random.sample(partial_uc[k], min(len(partial_uc[k]), 100 - len(in_seqids)))
             # write cluster k's associated raw subreads to raw_fa
+            #data_queue.append([d, in_seqids, raw_fa, True])
             write_in_raw_fasta(input_fasta_d=d,
-                               in_seqids=uc[k] + partial_uc[k],
+                               in_seqids=in_seqids,
                                out_fa=raw_fa,
                                ignore_keyerror=True)
+        #p = ThreadPool(processes=3)
+        #rets = p.map(write_in_raw_fasta_starhelper, data_queue)
+        #p.close()
+        #p.join()
 
     def create_sams_for_clusters_in_bin(self, cids, refs):
         """

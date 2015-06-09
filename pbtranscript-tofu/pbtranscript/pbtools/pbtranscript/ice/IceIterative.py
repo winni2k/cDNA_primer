@@ -143,6 +143,9 @@ class IceIterative(IceFiles):
         # random prob of putting a singleton into another cluster
         self.random_prob = 0.3
 
+
+        self.ccs_fofn = ccs_fofn
+
         # unless fastq_filename is already given
         # converting input fasta + ccs_fofn --> fastq
         # so instead of using .ccs.h5 we can use just one QV from FASTQ
@@ -409,7 +412,7 @@ class IceIterative(IceFiles):
         self.maxScore = self.ice_opts.maxScore
         self.minLength = self.ice_opts.minLength
 
-        msg = "Autodetection of min fasta length: set to {0} (maxScore: {1}, minLength: {2}".format(\
+        msg = "Autodetection of min fasta length: set to {0} (maxScore: {1}, minLength: {2})".format(\
             self.ice_opts.cDNA_size, self.maxScore, self.minLength)
         self.add_log(msg)
 

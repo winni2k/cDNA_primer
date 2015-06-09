@@ -557,8 +557,11 @@ def build_sa(input_fasta, out_sa):
         raise IOError("Unable to find fasta file {f}.".format(f=input_fasta))
 
 
+def write_in_raw_fasta_starhelper(args):
+    write_in_raw_fasta(*args)
+
 def write_in_raw_fasta(input_fasta_d, in_seqids,
-                       out_fa, ignore_keyerror=False):
+                       out_fa, ignore_keyerror):
     """
     input_fasta_d --- miscBio.MetaFastaReader
     input fasta should be in format <movie>/<holeNumber>/<subread or CCS stuff>
@@ -578,11 +581,11 @@ def write_in_raw_fasta(input_fasta_d, in_seqids,
                     zmw_seen.add(zmw)
             except KeyError:
                 if ignore_keyerror:
-                    logging.warning("Ignoring {zmw} because the input fasta_fofn ".
-                                    format(zmw=zmw) + "does not contain its sequence.")
+                    pass#logging.warning("Ignoring {zmw} because the input fasta_fofn ".
+                        #            format(zmw=zmw) + "does not contain its sequence.")
                 else:
                     raise ValueError, "{0} doesn't exist. Abort!".format(zmw)
-    return movies
+    #return movies
 
 
 def blasr_sam_for_quiver(input_fasta, ref_fasta,
