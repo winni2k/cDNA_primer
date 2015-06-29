@@ -53,6 +53,8 @@ class Polish(IceFiles):
         self.sge_opts = sge_opts
         self.ipq_opts = ipq_opts
 
+        self.add_log("ece_penalty: {0}, ece_min_len: {1}".format(self.ice_opts.ece_penalty, self.ice_opts.ece_min_len))
+
         self.icep = None   # IceAllPartials.
         self.iceq = None   # IceQuiver
         self.icepq = None  # IceQuiverPostprocess

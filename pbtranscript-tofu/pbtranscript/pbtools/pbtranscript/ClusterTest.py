@@ -1,4 +1,4 @@
-"""Define class `Cluster` and `ClusterException`."""
+"""Define class `Cluster` and `ClusterTestException`."""
 #!/usr/bin/env python
 import os
 import os.path as op
@@ -17,7 +17,7 @@ from pbtools.pbtranscript.ice.IceUtils import ice_fa2fq
 from pbtools.pbtranscript.__init__ import get_version
 
 
-class ClusterException(PBTranscriptException):
+class ClusterTestException(PBTranscriptException):
 
     """
     Exception class for Classifier.
@@ -27,7 +27,7 @@ class ClusterException(PBTranscriptException):
         PBTranscriptException.__init__(self, "cluster", msg)
 
 
-class Cluster(IceFiles):
+class ClusterTest(IceFiles):
 
     """
     An object of `Cluster` calls the ICE algorithm to
@@ -38,7 +38,7 @@ class Cluster(IceFiles):
                  bas_fofn, ccs_fofn, out_fa,
                  sge_opts, ice_opts, ipq_opts,
                  report_fn=None, summary_fn=None, fasta_fofn=None, nfl_reads_per_split=30000):
-        super(Cluster, self).__init__(prog_name="Cluster",
+        super(ClusterTest, self).__init__(prog_name="ClusterTest",
                                       root_dir=root_dir,
                                       bas_fofn=bas_fofn,
                                       ccs_fofn=ccs_fofn,
@@ -70,10 +70,6 @@ class Cluster(IceFiles):
         self.iceq = None
         self.pol = None
 
-        self.add_log("Setting ece_penalty: {0} ece_min_len: {1}".format(ice_opts.ece_penalty, ice_opts.ece_min_len),\
-                     level=logging.INFO)
-
-
         self.report_fn = realpath(report_fn) if report_fn is not None \
             else op.join(self.root_dir, "cluster_report.csv")
         self.summary_fn = realpath(summary_fn) if summary_fn is not None \
@@ -86,34 +82,34 @@ class Cluster(IceFiles):
         flnc_fa, nfl_fa, ccs_fofn = _flnc_fa, _nfl_fa, _ccs_fofn
         self.add_log("Checking input files.", level=logging.INFO)
         if flnc_fa is None:
-            raise ClusterException("Input full-length non-chimeric reads " +
+            raise ClusterTestException("Input full-length non-chimeric reads " +
                     "files (i.e., flnc_fa) needs to be specified.")
         else:
             flnc_fa = realpath(flnc_fa)
             if not op.exists(flnc_fa):
-                raise ClusterException("Unable to find full-length " +
+                raise ClusterTestException("Unable to find full-length " +
                     "non-chimeric reads: {fn}".format(fn=flnc_fa))
 
         if nfl_fa is None:
             if quiver is True:
-                raise ClusterException("Input non-full-length reads file " +
+                raise ClusterTestException("Input non-full-length reads file " +
                     "(i.e., nfl_fa) needs to be specified for isoform polish.")
         else:
             nfl_fa = realpath(nfl_fa)
             if not op.exists(nfl_fa):
-                raise ClusterException("Unable to find non-full-length " +
+                raise ClusterTestException("Unable to find non-full-length " +
                     "non-chimeric reads: {fn}".format(fn=nfl_fa))
 
         if ccs_fofn is not None and not op.exists(ccs_fofn):
-            raise ClusterException("Unable to find CCS FOFN file: " +
+            raise ClusterTestException("Unable to find CCS FOFN file: " +
                                    "{fn}".format(fn=ccs_fofn))
 
         if fasta_fofn is not None and quiver:
             if not os.path.exists(fasta_fofn):
-                raise ClusterException("Unable to find FASTA_FOFN file: {0}".format(fasta_fofn))
+                raise ClusterTestException("Unable to find FASTA_FOFN file: {0}".format(fasta_fofn))
             for line in open(fasta_fofn):
                 if not os.path.exists(line.strip()):
-                    raise ClusterException("Unable to locate {0} in {1}".format(\
+                    raise ClusterTestException("Unable to locate {0} in {1}".format(\
                             line.strip(), fasta_fofn))
         return (flnc_fa, nfl_fa, ccs_fofn, fasta_fofn)
 
@@ -138,7 +134,7 @@ class Cluster(IceFiles):
             self.add_log("Creating output directory {d}.".format(d=root_dir))
             os.mkdir(root_dir)
         if op.exists(out_fa):
-            raise ClusterException("Consensus FASTA file {f} already exists.".
+            raise ClusterTestException("Consensus FASTA file {f} already exists.".
                                    format(f=out_fa))
         return root_dir, out_fa
 
@@ -233,8 +229,7 @@ class Cluster(IceFiles):
             self.iceinit = IceInit(readsFa=firstSplit,
                                    qver_get_func=self._probqv.get_smoothed,
                                    ice_opts=self.ice_opts,
-                                   sge_opts=self.sge_opts,
-                                   qvmean_get_func=self._probqv.get_mean)
+                                   sge_opts=self.sge_opts)
             uc = self.iceinit.uc
 
             # Dump uc to a file
@@ -259,51 +254,55 @@ class Cluster(IceFiles):
             fastq_filename=firstSplit_fq,
             use_ccs_qv=self.ice_opts.use_finer_qv)
         self.add_log("IceIterative log: {f}.".format(f=self.icec.log_fn))
-        self.icec.run()
-        self.add_log("IceIterative completed.", level=logging.INFO)
 
-        # IceIterative done, write predicted (unplished) consensus isoforms
-        # to an output fasta
-        self.add_log("Creating a link to unpolished consensus isoforms.")
-        ln(self.icec.final_consensus_fa, self.out_fa)
 
-        # Call quiver to polish predicted consensus isoforms.
-        if self.ice_opts.quiver is not True:
-            self.add_log("Creating a link to cluster report.",
-                         level=logging.INFO)
-            ln(src=self.icec.report_fn, dst=self.report_fn)
-
-            # Summarize cluster and write to summary_fn.
-            self.write_summary(summary_fn=self.summary_fn,
-                               isoforms_fa=self.out_fa)
-        else:  # self.ice_opts.quiver is True
-            self.add_log("Polishing clusters: initializing IcePolish.",
-                         level=logging.INFO)
-            self.pol = Polish(root_dir=self.root_dir,
-                              nfl_fa=self.nfl_fa,
-                              bas_fofn=self.bas_fofn,
-                              ccs_fofn=self.ccs_fofn,
-                              fasta_fofn=self.fasta_fofn,
-                              ice_opts=self.ice_opts,
-                              sge_opts=self.sge_opts,
-                              ipq_opts=self.ipq_opts,
-                              nfl_reads_per_split=self.nfl_reads_per_split)
-            self.add_log("IcePolish log: {f}.".format(f=self.pol.log_fn),
-                         level=logging.INFO)
-            self.pol.run()
-            self.add_log("IcePolish completed.", level=logging.INFO)
-
-            # cluster report
-            self.add_log("Creating a link to cluster report.",
-                         level=logging.INFO)
-            ln(src=self.pol.iceq.report_fn, dst=self.report_fn)
-
-            # Summarize cluster & polish and write to summary_fn.
-            self.write_summary(summary_fn=self.summary_fn,
-                               isoforms_fa=self.out_fa,
-                               hq_fa=self.pol.icepq.quivered_good_fa,
-                               lq_fa=self.pol.icepq.quivered_bad_fa)
-
-        # Create log file.
-        self.close_log()
-        return 0
+        return self.icec
+        #
+        # self.icec.run()
+        # self.add_log("IceIterative completed.", level=logging.INFO)
+        #
+        # # IceIterative done, write predicted (unplished) consensus isoforms
+        # # to an output fasta
+        # self.add_log("Creating a link to unpolished consensus isoforms.")
+        # ln(self.icec.final_consensus_fa, self.out_fa)
+        #
+        # # Call quiver to polish predicted consensus isoforms.
+        # if self.ice_opts.quiver is not True:
+        #     self.add_log("Creating a link to cluster report.",
+        #                  level=logging.INFO)
+        #     ln(src=self.icec.report_fn, dst=self.report_fn)
+        #
+        #     # Summarize cluster and write to summary_fn.
+        #     self.write_summary(summary_fn=self.summary_fn,
+        #                        isoforms_fa=self.out_fa)
+        # else:  # self.ice_opts.quiver is True
+        #     self.add_log("Polishing clusters: initializing IcePolish.",
+        #                  level=logging.INFO)
+        #     self.pol = Polish(root_dir=self.root_dir,
+        #                       nfl_fa=self.nfl_fa,
+        #                       bas_fofn=self.bas_fofn,
+        #                       ccs_fofn=self.ccs_fofn,
+        #                       fasta_fofn=self.fasta_fofn,
+        #                       ice_opts=self.ice_opts,
+        #                       sge_opts=self.sge_opts,
+        #                       ipq_opts=self.ipq_opts,
+        #                       nfl_reads_per_split=self.nfl_reads_per_split)
+        #     self.add_log("IcePolish log: {f}.".format(f=self.pol.log_fn),
+        #                  level=logging.INFO)
+        #     self.pol.run()
+        #     self.add_log("IcePolish completed.", level=logging.INFO)
+        #
+        #     # cluster report
+        #     self.add_log("Creating a link to cluster report.",
+        #                  level=logging.INFO)
+        #     ln(src=self.pol.iceq.report_fn, dst=self.report_fn)
+        #
+        #     # Summarize cluster & polish and write to summary_fn.
+        #     self.write_summary(summary_fn=self.summary_fn,
+        #                        isoforms_fa=self.out_fa,
+        #                        hq_fa=self.pol.icepq.quivered_good_fa,
+        #                        lq_fa=self.pol.icepq.quivered_bad_fa)
+        #
+        # # Create log file.
+        # self.close_log()
+        # return 0

@@ -160,13 +160,14 @@ def add_classify_arguments(parser):
 def add_ice_arguments(parser):
     """Add Ice options as a group to parser, return parser"""
     ice_group = parser.add_argument_group("ICE arguments")
-    ice_group.add_argument("--cDNA_size",
-                           type=str,
-                           dest="cDNA_size",
-                           action="store",
-                           choices=IceOptions.cDNA_sizeBins(),
-                           default="under1k",
-                           help="Estimated cDNA size.")
+    # (Liz) this is commented out. The parameter still exists but is now automatically detected in IceIterative.
+    # ice_group.add_argument("--cDNA_size",
+    #                        type=str,
+    #                        dest="cDNA_size",
+    #                        action="store",
+    #                        choices=IceOptions.cDNA_sizeBins(),
+    #                        default="under1k",
+    #                        help="Estimated cDNA size.")
 
 #    ice_group.add_argument("--nfl_reads_per_split",
 #                           type=int,
@@ -188,6 +189,15 @@ def add_ice_arguments(parser):
                            action="store_true",
                            help="Use finer classes of QV information instead of a single QV value. " +
                                 "This option is slower and consumes more memory.")
+
+    ice_group.add_argument("--targeted_isoseq",
+                           dest="targeted_isoseq",
+                           default=False,
+                           action="store_true",
+                           help="Input data is from targeted Iso-Seq. Automatically make parameter adjustments.")
+
+    ice_group.add_argument("--ece_penalty", dest="ece_penalty", type=int, default=1)
+    ice_group.add_argument("--ece_min_len", dest="ece_min_len", type=int, default=20)
     return parser
 
 
@@ -306,6 +316,8 @@ def add_ice_post_quiver_hq_lq_arguments(parser):
                         dest="lq_isoforms_fq",
                         help="Quiver polished, low quality isoforms " +
                         "in fastq, default: root_dir/output/all_quivered_lq.fq")
+
+
     return parser
 
 

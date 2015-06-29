@@ -232,8 +232,12 @@ def tofu_wrap_main():
 
     tofu_prefix = binascii.b2a_hex(os.urandom(3)) if args.output_seqid_prefix is None else args.output_seqid_prefix
 
-    ice_opts = IceOptions(cDNA_size=args.cDNA_size,
-            quiver=args.quiver)
+    ice_opts = IceOptions(quiver=args.quiver,
+            use_finer_qv=args.use_finer_qv,
+            targeted_isoseq=args.targeted_isoseq,
+            ece_penalty=args.ece_penalty,
+            ece_min_len=args.ece_min_len,
+    )
     sge_opts = SgeOptions(unique_id=args.unique_id,
             use_sge=args.use_sge,
             max_sge_jobs=args.max_sge_jobs,

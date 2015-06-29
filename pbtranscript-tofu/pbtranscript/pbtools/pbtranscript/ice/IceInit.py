@@ -10,16 +10,18 @@ import time
 import networkx as nx
 import logging
 from pbcore.io import FastaReader
+import numpy as np
 from pbcore.util.Process import backticks
 from pbtools.pbtranscript.Utils import real_upath
 import pbtools.pbtranscript.ice.pClique as pClique
 #from pbtools.pbtranscript.ice.IceUtils import blasr_against_ref  # replacing this with dalign_against_ref
+from pbtools.pbtranscript.ice.IceUtils import get_daligner_sensitivity_setting
 from pbtools.pbtranscript.icedalign.IceDalignUtils import DazzIDHandler, DalignerRunner
 from pbtools.pbtranscript.icedalign.IceDalignReader import dalign_against_ref
 
 class IceInit(object):
     """Iterative clustering and error correction."""
-    def __init__(self, readsFa, qver_get_func,
+    def __init__(self, readsFa, qver_get_func, qvmean_get_func,
         ice_opts, sge_opts):
 
         self.readsFa = readsFa
@@ -31,7 +33,7 @@ class IceInit(object):
         self.uc = self.init_cluster_by_clique(
             readsFa=readsFa,
             qver_get_func=qver_get_func,
-            ice_opts=ice_opts, sge_opts=sge_opts)
+            ice_opts=ice_opts, sge_opts=sge_opts, qvmean_get_func=qvmean_get_func)
 
     # OBSOLETE version using BLASR
     # def d(self, queryFa, targetFa, outFN, ice_opts, sge_opts):
@@ -57,6 +59,8 @@ class IceInit(object):
 
     def _align(self, queryFa, output_dir, ice_opts, sge_opts):
 
+        daligner_sensitive_mode, _low, _high = get_daligner_sensitivity_setting(queryFa)
+
         input_obj = DazzIDHandler(queryFa, False)
         DalignerRunner.make_db(input_obj.dazz_filename)
 
@@ -64,7 +68,7 @@ class IceInit(object):
         runner = DalignerRunner(queryFa, queryFa, is_FL=True, same_strand_only=True, \
                             query_converted=True, db_converted=True, query_made=True, \
                             db_made=True, use_sge=False, cpus=4)
-        las_filenames, las_out_filenames = runner.runHPC(min_match_len=300, output_dir=output_dir)
+        las_filenames, las_out_filenames = runner.runHPC(min_match_len=300, output_dir=output_dir, sensitive_mode=daligner_sensitive_mode)
         return input_obj, las_out_filenames
 
 
@@ -86,14 +90,15 @@ class IceInit(object):
     #             alignGraph.add_edge(r.qID, r.cID)
     #     return alignGraph
 
-    def _makeGraphFromLasOut(self, las_out_filenames, dazz_obj, qver_get_func, ice_opts):
+    def _makeGraphFromLasOut(self, las_out_filenames, dazz_obj, qver_get_func, ice_opts, qvmean_get_func=None):
         alignGraph = nx.Graph()
 
         for las_out_filename in las_out_filenames:
             count = 0
             start_t = time.time()
             for r in dalign_against_ref(dazz_obj, dazz_obj, las_out_filename, is_FL=True, sID_starts_with_c=False,
-                      qver_get_func=qver_get_func, qv_prob_threshold=.03,
+                      qver_get_func=qver_get_func, qvmean_get_func=qvmean_get_func,
+                      qv_prob_threshold=.03,
                       ece_penalty=ice_opts.ece_penalty, ece_min_len=ice_opts.ece_min_len,
                       same_strand_only=True, no_qv_or_aln_checking=False):
                 if r.qID == r.cID: continue # self hit, ignore
@@ -159,7 +164,7 @@ class IceInit(object):
         return uc
 
     def init_cluster_by_clique(self, readsFa, qver_get_func,
-            ice_opts, sge_opts):
+            ice_opts, sge_opts, qvmean_get_func):
         """
         Only called once and in the very beginning, when (probably a subset)
         of sequences are given to generate the initial cluster.
@@ -182,7 +187,7 @@ class IceInit(object):
         dazz_obj, las_out_filenames = self._align(queryFa=readsFa, output_dir=output_dir,
             ice_opts=ice_opts, sge_opts=sge_opts)
 
-        alignGraph = self._makeGraphFromLasOut(las_out_filenames, dazz_obj, qver_get_func, ice_opts)
+        alignGraph = self._makeGraphFromLasOut(las_out_filenames, dazz_obj, qver_get_func, ice_opts, qvmean_get_func=qvmean_get_func)
 
         uc = self._findCliques(alignGraph=alignGraph, readsFa=readsFa)
         return uc

@@ -116,9 +116,11 @@ class PBTranscript(PBMultiToolRunner):
                                  reuse_dom=self.args.reuse_dom)
                 obj.run()
             elif cmd == 'cluster':
-                ice_opts = IceOptions(cDNA_size=self.args.cDNA_size,
-                                      quiver=self.args.quiver,
-                                      use_finer_qv=self.args.use_finer_qv)
+                ice_opts = IceOptions(quiver=self.args.quiver,
+                                      use_finer_qv=self.args.use_finer_qv,
+                                      targeted_isoseq=self.args.targeted_isoseq,
+                                      ece_penalty=self.args.ece_penalty,
+                                      ece_min_len=self.args.ece_min_len)
                 sge_opts = SgeOptions(unique_id=self.args.unique_id,
                                       use_sge=self.args.use_sge,
                                       max_sge_jobs=self.args.max_sge_jobs,

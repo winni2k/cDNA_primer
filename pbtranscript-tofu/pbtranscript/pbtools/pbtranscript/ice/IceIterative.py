@@ -9,6 +9,7 @@ import shutil
 import logging
 import random
 import time
+import numpy as np
 from pbcore.io.FastaIO import FastaReader
 from multiprocessing.pool import ThreadPool
 from datetime import datetime
@@ -19,7 +20,8 @@ from pbtools.pbtranscript.ice.ProbModel import ProbFromQV, ProbFromFastq
 from pbtools.pbtranscript.ice.IceInit import IceInit
 from pbtools.pbtranscript.ice.IceUtils import sanity_check_gcon, \
     sanity_check_sge, possible_merge, blasr_against_ref, \
-    get_the_only_fasta_record, cid_with_annotation
+    get_the_only_fasta_record, cid_with_annotation, \
+    get_daligner_sensitivity_setting
 from pbtools.pbtranscript.ice.IceFiles import IceFiles, wait_for_sge_jobs
 from pbtools.pbtranscript.ice_pbdagcon import runConsensus
 from pbtools.pbtranscript.ice.IceUtils import ice_fa2fq
@@ -47,7 +49,7 @@ class IceIterative(IceFiles):
         fasta_filename --- the current fasta filename containing
             all the "active" reads (reads that are allowed to move
             to new clusters).
-            usually called 'in.fa_split.0.fa' in the first round
+            usually called 'input.split_000.fasta' in the first round
             and 'current.fasta' after 1 round
 
         fastq_filename --- should be the FASTQ version of fasta_filename, if not given,
@@ -62,18 +64,21 @@ class IceIterative(IceFiles):
             all_fasta_filename
 
         all_fasta_filename --- this should be the *entire* fasta,
-            not the one that we'll start with.
-        ccs_fofn --- should be reads_of_insert.fofn
+            not the one that we'll start with. Usually this is 'isoseq_flnc.fasta'.
+
+        ccs_fofn --- should be reads_of_insert.fofn.
 
         uc --- the initial or current cluster assignment,
             dict of cid --> list of members
-        refs ---  dict of cid --> fasta file containing the cluster
-            consensus fasta
+
+        refs ---  dict of cid --> fasta file containing the cluster consensus fasta
+
         d  --- dict of read id --> dict of cid:prob
 
         qv_prob_threshold --- params for isoform accept/reject hit
-        ice_opts --- params for isoform accept/reject, including
-            ece_penalty, ece_min_len, maxScore
+
+        ice_opts --- params for isoform accept/reject, including ece_penalty, ece_min_len, maxScore
+
         probQV --- ProbFromQV object, this is what takes up all the memory
 
         sge_opts --- params for SGE environment, including
@@ -81,7 +86,11 @@ class IceIterative(IceFiles):
             max_sge_jobs : maximum number of gcon jobs submitted
             unique_id   : unique qsub job id, important that this
                          DOES NOT CONFLICT!
-            blasr_nproc : blasr -nproc param, number of threads per cpu.
+            blasr_nproc : blasr -nproc param, number of threads per cpu on MAIN node.
+                          DALIGNER however has hardcoded 4 CPUs, but jobs may be parallelized if
+                           DBsplit results in smaller DBs.
+            gcon_nproc : number of processes for DAGCON/DAZCON
+            quiver_nproc : number of processes for Quiver
         """
         super(IceIterative, self).__init__(prog_name="IceIterative",
                                            root_dir=root_dir, ccs_fofn=ccs_fofn)
@@ -99,6 +108,9 @@ class IceIterative(IceFiles):
         if self.use_sge:
             sanity_check_sge(self.script_dir)
 
+        # newids track the "active ids" that are allowed to move around diff clusters
+        # by contrast, "frozen ids" cannot leave their current cluster and have
+        # self.d[a_frozen_id] = {cid: 0}
         self.newids = set([r.name.split()[0]
                            for r in FastaReader(fasta_filename)])
         self.seq_dict = FastaRandomReader(all_fasta_filename)
@@ -132,17 +144,15 @@ class IceIterative(IceFiles):
         self.ece_penalty = ice_opts.ece_penalty
         self.ece_min_len = ice_opts.ece_min_len
 
-
         # automatically detect scores (Liz)
+        # this sets ice_opts.maxScore and ice_opts.minLength and sensitive mode
+        self.daligner_sensitive_mode = False
         self.auto_detect_length_to_set_scores()
-        #self.maxScore = ice_opts.maxScore
-        #self.minLength = ice_opts.minLength
 
         self.unrun_cids = []
 
         # random prob of putting a singleton into another cluster
         self.random_prob = 0.3
-
 
         self.ccs_fofn = ccs_fofn
 
@@ -205,7 +215,7 @@ class IceIterative(IceFiles):
                          level=logging.INFO)
             self.d = d
 
-        self.removed_qids = set()
+        self.removed_qids = set() #
         self.global_count = 0
 
     @property
@@ -246,22 +256,22 @@ class IceIterative(IceFiles):
         return op.join(self.script_dir, str(iterNum), "aloha")
 
     def uptoPickleFN(self, fa):
-        """Given a Fasta file path/*.fa, return
-           $self.out_dir/upto_*.fa.pickle
+        """Given a Fasta file path/*.fasta, return
+           $self.out_dir/upto_*.fasta.pickle
         """
         fn = fa.split('/')[-1]
         return op.join(self.out_dir, fn + ".pickle")
 
     def uptoConsensusFa(self, fa):
         """Given a Fasta file: path_to_fa/*.fa, return
-           $self.out_dir/upto_*.fa.consensus.fasta
+           $self.out_dir/upto_*.fasta.consensus.fasta
         """
         fn = fa.split('/')[-1]
         return op.join(self.out_dir, fn + ".consensus.fasta")
 
     def orphanFa(self, prefix):
-        """Return $prefix.orphan.fa """
-        return str(prefix) + ".orphan.fa"
+        """Return $prefix.orphan.fasta """
+        return str(prefix) + ".orphan.fasta"
 
     def selfBlasrFN(self, fn):
         """Return fn + ".self.blasr",
@@ -394,17 +404,15 @@ class IceIterative(IceFiles):
     def auto_detect_length_to_set_scores(self):
         """
         Automatically detect the size range
-        to adjust for BLASR maxScore (if used) and daligner minLength
+        to adjust for BLASR maxScore (if used) and daligner minLength / sensitivity
         """
-        min_len_seen = 99999
-        for r in FastaReader(self.all_fasta_filename):
-            min_len_seen = min(min_len_seen, len(r.sequence))
+        flag, _low, _high = get_daligner_sensitivity_setting(self.all_fasta_filename)
 
-        if min_len_seen <= 1000:
+        if _low <= 1000:
             self.ice_opts.cDNA_size = "under1k"
-        elif min_len_seen <= 2000:
+        elif _low <= 2000:
             self.ice_opts.cDNA_size = "between1k2k"
-        elif min_len_seen <= 3000:
+        elif _low <= 3000:
             self.ice_opts.cDNA_size = "between2k3k"
         else:
             self.ice_opts.cDNA_size = "above3k"
@@ -415,6 +423,10 @@ class IceIterative(IceFiles):
         msg = "Autodetection of min fasta length: set to {0} (maxScore: {1}, minLength: {2})".format(\
             self.ice_opts.cDNA_size, self.maxScore, self.minLength)
         self.add_log(msg)
+
+        if flag:
+            self.daligner_sensitive_mode = True
+            self.add_log("Setting daligner to sensitive mode.")
 
     def make_new_cluster(self):
         """Add a new cluster to self.uc."""
@@ -633,7 +645,6 @@ class IceIterative(IceFiles):
                           self.gcon_py + job
                     self.add_log(msg)
 
-                ts = []
                 if len(jobs) > 0:
                     # Python's multiprocessing module copies all memory from
                     # the parent process.  In this case, it's likely due to all
@@ -837,8 +848,8 @@ class IceIterative(IceFiles):
 
     def calc_cluster_prob(self, force_calc=False):
         """
-        Dump all consensus file to ref_consensus.fa --> get SA
-        --> run self BLASR
+        Dump all consensus file to ref_consensus.fa
+        --> run DALIGNER (used to be BLASR) and get probs
         """
         # make the consensus file & SA
         _todo = set(self.uc.keys()) if force_calc else self.changes
@@ -865,7 +876,7 @@ class IceIterative(IceFiles):
         runner = DalignerRunner(real_upath(self.fasta_filename), self.refConsensusFa, is_FL=True, same_strand_only=True, \
                             query_converted=True, db_converted=True, query_made=True, \
                             db_made=True, use_sge=False, cpus=4)
-        las_filenames, las_out_filenames = runner.runHPC(min_match_len=self.minLength, output_dir=output_dir)
+        las_filenames, las_out_filenames = runner.runHPC(min_match_len=self.minLength, output_dir=output_dir, sensitive_mode=self.daligner_sensitive_mode)
 
 # ----- old version using BLASR -----------------------------
 #        saFN = f.name + ".sa"
@@ -932,6 +943,7 @@ class IceIterative(IceFiles):
         for las_out_filename in las_out_filenames:
             for hit in dalign_against_ref(query_obj, ref_obj, las_out_filename, is_FL=True, sID_starts_with_c=True,
                       qver_get_func=self.probQV.get_smoothed,
+                      qvmean_get_func=self.probQV.get_mean,
                       qv_prob_threshold=self.qv_prob_threshold,
                       ece_penalty=self.ece_penalty, ece_min_len=self.ece_min_len,
                       same_strand_only=True, no_qv_or_aln_checking=False):
@@ -946,12 +958,16 @@ class IceIterative(IceFiles):
         The meat of processing a BLASR output
         Fills in the self.d
         (REMEMBER to pre-clean the self.d)
+
+        EVEN THOUGH THIS IS NOT CURRENTLY USED (g2 is called for daligner)
+        I'm still keeping this because may eventually use BLASR again
         """
         # for qID, cID, qStart, qEnd, _missed_q, _missed_t, fakecigar, _ece_arr
         for hit in blasr_against_ref(
                 output_filename=output_filename,
                 is_FL=self.is_FL, sID_starts_with_c=True,
                 qver_get_func=self.probQV.get_smoothed,
+                qvmean_get_func=self.probQV.get_mean,
                 qv_prob_threshold=self.qv_prob_threshold,
                 ece_penalty=self.ece_penalty,
                 ece_min_len=self.ece_min_len):
@@ -996,6 +1012,7 @@ class IceIterative(IceFiles):
                 time_1 = datetime.now()
                 iceinit = IceInit(readsFa=self.tmpOrphanFa,
                                   qver_get_func=self.probQV.get_smoothed,
+                                  qvmean_get_func=self.probQV.get_mean,
                                   ice_opts=self.ice_opts,
                                   sge_opts=self.sge_opts)
 
@@ -1196,8 +1213,6 @@ class IceIterative(IceFiles):
             for sid in orphans:
                 f.write(">{0}\n{1}\n".format(sid, self.seq_dict[sid].sequence))
 
-        # if op.exists(self.fasta_filename + '.orphan.fa.self.blasr'):
-        #    os.remove(self.fasta_filename + '.orphan.fa.self.blasr')
         # must clean it in case it already exists
         if op.exists(self.selfBlasrFN(ofa)):
             os.remove(self.selfBlasrFN(ofa))
@@ -1206,6 +1221,7 @@ class IceIterative(IceFiles):
         # self.probQV.get_smoothed, nproc=self.blaserNProc, bestn=200, ...
         iceinit = IceInit(readsFa=ofa,
                           qver_get_func=self.probQV.get_smoothed,
+                          qvmean_get_func=self.probQV.get_mean,
                           ice_opts=self.ice_opts,
                           sge_opts=self.sge_opts)
         uc = iceinit.uc
@@ -1220,7 +1236,6 @@ class IceIterative(IceFiles):
         # now fasta file contains:
         # {new batch} + {any id removed from final round} + {active ids}
         # which is consistent with self.newids and self.probQV
-        #f = open(self.fasta_filename, 'a')
         with open(self.fasta_filename, 'a') as f:
             for sid in active_ids:
                 f.write(">{0}\n{1}\n".format(sid,
@@ -1304,11 +1319,17 @@ class IceIterative(IceFiles):
         while (len(self.fasta_filenames_to_add) > 0):
             f = self.fasta_filenames_to_add.pop(0)
             self.add_log("adding file {f}".format(f=f))
-
             self.run_post_ICE_merging(
                 consensusFa=self.tmpConsensusFa,
                 pickleFN=self.tmpPickleFN,
-                max_iter=3)
+                max_iter=3,
+                use_blasr=False)
+            if self.ice_opts.targeted_isoseq:
+                self.run_post_ICE_merging(
+                    consensusFa=self.tmpConsensusFa,
+                    pickleFN=self.tmpPickleFN,
+                    max_iter=3,
+                    use_blasr=True)
             # out_prefix='output/tmp',
             self.add_new_batch(f)
             self.check_cluster_sanity()
@@ -1320,7 +1341,7 @@ class IceIterative(IceFiles):
             self.write_consensus(self.uptoConsensusFa(f))
             #'output/upto_'+f+'.consensus.fa')
 
-    def run_post_ICE_merging(self, consensusFa, pickleFN, max_iter):
+    def run_post_ICE_merging(self, consensusFa, pickleFN, max_iter, use_blasr):
         """
         (1) write pickle/consensus file
         (2) find mergeable clusters
@@ -1328,11 +1349,7 @@ class IceIterative(IceFiles):
         """
         consensus_filename = consensusFa
         pickle_filename = pickleFN
-        self.add_log("run_post_ICE_merging called with max_iter={0}.".format(max_iter))
-        #consensus_filename = out_prefix + '.consensus.fa'
-        #pickle_filename = out_prefix + '.pickle'
-        #self._changes = set(self.changes)
-        # this is just back up for debugging purpose
+        self.add_log("run_post_ICE_merging called with max_iter={0}, using_blasr={1}".format(max_iter, use_blasr))
         for _i in xrange(max_iter):
             self.add_log("Before merging: {0} clusters".format(len(self.uc)))
             self.add_log("Running post-iterative-merging iterate {n}".
@@ -1344,7 +1361,7 @@ class IceIterative(IceFiles):
             self.add_log("Writing consensus file: " + consensus_filename)
             self.write_consensus(consensus_filename)
 
-            iters = self.find_mergeable_consensus(consensus_filename)
+            iters = self.find_mergeable_consensus(consensus_filename, use_blasr=use_blasr)
 
             self.old_rec = {}
             self.new_rec = {}
@@ -1361,49 +1378,50 @@ class IceIterative(IceFiles):
 
             self.add_log("After merging: {0} clusters".format(len(self.uc)))
 
-    def find_mergeable_consensus(self, fasta_filename):
+    def find_mergeable_consensus(self, fasta_filename, use_blasr=False):
         """
         run self-blasr on input fasta (likely tmp.consensus.fa)
         and yield BLASRM5 record of mergeable clusters
         """
-        u_fasta_filename = real_upath(fasta_filename)
+        if not use_blasr:
+            u_fasta_filename = real_upath(fasta_filename)
 
-        output_dir = os.path.dirname(fasta_filename)
-        dazz_obj = DazzIDHandler(u_fasta_filename, False)
-        DalignerRunner.make_db(dazz_obj.dazz_filename)
+            output_dir = os.path.dirname(fasta_filename)
+            dazz_obj = DazzIDHandler(u_fasta_filename, False)
+            DalignerRunner.make_db(dazz_obj.dazz_filename)
 
-        # run this locally
-        runner = DalignerRunner(u_fasta_filename, u_fasta_filename, is_FL=True, same_strand_only=True, \
-                            query_converted=True, db_converted=True, query_made=True, \
-                            db_made=True, use_sge=False, cpus=4)
-        las_filenames, las_out_filenames = runner.runHPC(min_match_len=self.minLength, output_dir=output_dir)
+            # run this locally
+            runner = DalignerRunner(u_fasta_filename, u_fasta_filename, is_FL=True, same_strand_only=True, \
+                                query_converted=True, db_converted=True, query_made=True, \
+                                db_made=True, use_sge=False, cpus=4)
+            las_filenames, las_out_filenames = runner.runHPC(min_match_len=self.minLength, output_dir=output_dir, sensitive_mode=self.daligner_sensitive_mode)
 
-        for las_out_filename in las_out_filenames:
-            for r in LAshowAlignReader(las_out_filename):
-                r.qID = dazz_obj[r.qID]
-                r.sID = dazz_obj[r.sID]
-                if possible_merge(r=r, ece_penalty=self.ece_penalty, ece_min_len=self.ece_min_len):
+            for las_out_filename in las_out_filenames:
+                for r in LAshowAlignReader(las_out_filename):
+                    r.qID = dazz_obj[r.qID]
+                    r.sID = dazz_obj[r.sID]
+                    if possible_merge(r=r, ece_penalty=self.ece_penalty, ece_min_len=self.ece_min_len):
+                        yield r
+
+            for file in las_filenames: os.remove(file)
+            for file in las_out_filenames: os.remove(file)
+        else:
+            # ------- OLD VERSION using BLASR
+            out = self.selfBlasrFN(fasta_filename)
+            if op.exists(out):  # clean out the blasr file from the last run
+                os.remove(out)
+            cmd = "blasr {i} {i} ".format(i=real_upath(fasta_filename)) + \
+                  "-bestn 50 -nCandidates 200 -minPctIdentity 90 -maxLCPLength 15 -m 5 " + \
+                  "-maxScore {s} ".format(s=self.maxScore) + \
+                  "-nproc {cpu} -out {o}".format(cpu=self.blasr_nproc,
+                                                 o=real_upath(out))
+            self.add_log("Calling blasr to self align " + fasta_filename)
+            self.run_cmd_and_log(cmd)
+
+            for r in BLASRM5Reader(out):
+                if possible_merge(r=r, ece_penalty=self.ece_penalty,
+                                  ece_min_len=self.ece_min_len):
                     yield r
-
-        for file in las_filenames: os.remove(file)
-        for file in las_out_filenames: os.remove(file)
-
-        # ------- OLD VERSION using BLASR
-        # out = self.selfBlasrFN(fasta_filename)
-        # if op.exists(out):  # clean out the blasr file from the last run
-        #     os.remove(out)
-        # cmd = "blasr {i} {i} ".format(i=real_upath(fasta_filename)) + \
-        #       "-bestn 20 -nCandidates 100 -minPctIdentity 90 -m 5 " + \
-        #       "-maxScore {s} ".format(s=self.maxScore) + \
-        #       "-nproc {cpu} -out {o}".format(cpu=self.blasr_nproc,
-        #                                      o=real_upath(out))
-        # self.add_log("Calling blasr to self align " + fasta_filename)
-        # self.run_cmd_and_log(cmd)
-        #
-        # for r in BLASRM5Reader(out):
-        #     if possible_merge(r=r, ece_penalty=self.ece_penalty,
-        #                       ece_min_len=self.ece_min_len):
-        #         yield r
 
     def do_icec_merge_nogcon(self, r):
         """
@@ -1518,7 +1536,14 @@ class IceIterative(IceFiles):
         self.add_log(msg, level=logging.INFO)
         self.run_post_ICE_merging(consensusFa=self.tmpConsensusFa,
                                   pickleFN=self.tmpPickleFN,
-                                  max_iter=3)
+                                  max_iter=3,
+                                  use_blasr=False)
+        # run two extra rounds using BLASR
+        if self.ice_opts.targeted_isoseq:
+            self.run_post_ICE_merging(consensusFa=self.tmpConsensusFa,
+                                  pickleFN=self.tmpPickleFN,
+                                  max_iter=3,
+                                  use_blasr=True)
 
         msg = "Finalize clusters."
         self.add_log(msg, level=logging.INFO)
@@ -1526,6 +1551,8 @@ class IceIterative(IceFiles):
         # so that the chance of taking a move in run_til_end -> onemove
         # is low.
         self.random_prob = 0.01
+
+        self.newids = set() # set to empty so freeze_d() will do the right thing
 
         for _i in xrange(3):
             self.add_log("run_for_new_batch iteration {n}".format(n=_i),

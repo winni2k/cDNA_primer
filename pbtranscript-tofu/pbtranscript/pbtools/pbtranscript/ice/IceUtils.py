@@ -89,6 +89,41 @@ def sanity_check_sge(scriptDir, testDirName="gcon_test_dir"):
         return True
 
 
+
+def set_daligner_sensitivity_setting(fasta_filename):
+    lens = np.array([len(r.sequence) for r in FastaReader(fasta_filename)])
+    _low, _high = np.percentile(lens, [25, 75])
+    _low  = int(_low)
+    _high = int(_high)
+    if _low >= 3000:
+        with open(fasta_filename+'.sensitive.config', 'w') as f:
+            f.write("sensitive=True\n")
+            f.write("low={0}\nhigh={1}\n".format(_low, _high))
+        return True, _low, _high
+    else:
+        with open(fasta_filename+'.sensitive.config', 'w') as f:
+            f.write("sensitive=False\n")
+            f.write("low={0}\nhigh={1}\n".format(_low, _high))
+        return False, _low, _high
+
+def get_daligner_sensitivity_setting(fasta_filename):
+    config = fasta_filename + '.sensitive.config'
+    if not os.path.exists(config):
+        return set_daligner_sensitivity_setting(fasta_filename)
+    else:
+        with open(config) as f:
+            a, b = f.readline().strip().split('=')
+            assert a == 'sensitive'
+            flag = (b == 'True')
+            a, b = f.readline().strip().split('=')
+            assert a == 'low'
+            _low = int(b)
+            a, b = f.readline().strip().split('=')
+            assert a == 'high'
+            _high = int(b)
+        return flag, _low, _high
+
+
 def get_ece_arr_from_alignment(record):
     """
     A simplified version of eval_blasr_alignment that does NOT look at QV
@@ -103,8 +138,8 @@ def get_ece_arr_from_alignment(record):
     return ece
 
 
-def eval_blasr_alignment(record, qver_get_func,
-                         sID_starts_with_c, qv_prob_threshold):
+def eval_blasr_alignment(record, qver_get_func, qvmean_get_func,
+                         sID_starts_with_c, qv_prob_threshold, debug=False):
     """
     Takes a BLASRRecord (blasr -m 5) and goes through the
     alignment string
@@ -128,7 +163,8 @@ def eval_blasr_alignment(record, qver_get_func,
     I write code to check specifically for homopolymers, (otherwise the
     cigar_str[-1]=='D' or 'I' sets in). -- Liz
     """
-    #pdb.set_trace()
+    if debug:
+        pdb.set_trace()
     if record.qStrand == '+':
         query_qver_get_func = lambda _name, _pos: qver_get_func(record.qID, _name, min(_pos+record.qStart, record.qLength-1))
         query_qver_get_func1 = lambda _name, _pos: qver_get_func(record.qID, _name, min(_pos+record.qStart+1, record.qLength-1))
@@ -147,8 +183,24 @@ def eval_blasr_alignment(record, qver_get_func,
     else:
         raise Exception, "Unknown strand type {0}".format(record.sStrand)
 
+    # if mean_qv_for_q|s is not given, always revert back to qv_prob_threshold
+    if qvmean_get_func is None:
+        mean_qv_for_q = {'D': qv_prob_threshold, 'S': qv_prob_threshold, 'I': qv_prob_threshold}
+        mean_qv_for_s = None if sID_starts_with_c else {'D': qv_prob_threshold, 'S': qv_prob_threshold, 'I': qv_prob_threshold}
+    else:
+        mean_qv_for_q = {'D': qvmean_get_func(record.qID, 'DeletionQV'), \
+                         'I': qvmean_get_func(record.qID, 'InsertionQV'), \
+                         'S': qvmean_get_func(record.qID, 'SubstitutionQV')}
+        if sID_starts_with_c:
+            mean_qv_for_s = None
+        else:
+            mean_qv_for_s = {'D': qvmean_get_func(record.sID, 'DeletionQV'), \
+                            'I': qvmean_get_func(record.sID, 'InsertionQV'), \
+                            'S': qvmean_get_func(record.sID, 'SubstitutionQV')}
+
     q_index = 0
     s_index = 0
+    last_state, last_tracking_nt, homopolymer_so_far = None, None, False
     cigar_str = ''
     # binary array of 0|1 where 1 is a penalty
     ece = np.zeros(len(record.alnStr), dtype=np.int)
@@ -158,31 +210,99 @@ def eval_blasr_alignment(record, qver_get_func,
             cigar_str += 'M'
             q_index += 1
             s_index += 1
+            last_state = 'M'
         elif record.qAln[offset] == '-':  # deletion
-            if (offset > 0 and cigar_str[-1] == 'D') or (
-                query_qver_get_func1('DeletionQV', q_index) < qv_prob_threshold and
-               (sID_starts_with_c or subject_qver_get_func('InsertionQV', s_index) < qv_prob_threshold)):
-                # case 1: last one was also a D (so q_index did not advance)
-                # case 2: both QVs were good yet still a non-match, penalty!
-                ece[offset] = 1
+            # if last_state != 'D':
+            #     last_tracking_nt = record.sAln[s_index]
+            #     homopolymer_so_far = True
+            #     ece[offset] = 1
+            # else:
+            #     homopolymer_so_far = (record.sAln[s_index] == last_tracking_nt)
+            #     if not homopolymer_so_far:
+            #         ece[offset] = 1
+
+            # for deletion, cases where consider a non-match
+            # (1) IF last position was not "D"
+            #        case 1a: both query and subject has very good prob
+            # (2) IF last position was "D" (q_index did not advance)
+            #        case 2a: both query and subject has very good prob
+            #        case 2b: subject has good prob; query has bad prob AND last-cur pos is NOT homopolymer
+            # case 1a and case 2a have the same condition
+            # case 2b arises because the only possible explanation would have been query have bad prob,
+            #   but it was used to explain the last deletion and the advanced S nucleotide is diff from the last S
+            s_is_good = sID_starts_with_c or subject_qver_get_func('InsertionQV', s_index) < mean_qv_for_s
+            q_is_good = query_qver_get_func1('DeletionQV', q_index) < mean_qv_for_q
+            if last_state != 'D': # entering D state now, record s
+                last_tracking_nt = record.sAln[offset]
+                homopolymer_so_far = True
+                if (s_is_good and q_is_good):
+                    ece[offset] = 1
+            else:  # already in D state, which means q_index did not advance, hence q_is_good is the same
+                homopolymer_so_far = (record.sAln[offset] == last_tracking_nt)
+                if (s_is_good and (q_is_good or not homopolymer_so_far)):
+                    ece[offset] = 1
+
+
+            # ------------- OLD VERSION -------------------
+            #if (offset > 0 and cigar_str[-1] == 'D') or (
+            #    query_qver_get_func1('DeletionQV', q_index) < qv_prob_threshold and
+            #   (sID_starts_with_c or subject_qver_get_func('InsertionQV', s_index) < qv_prob_threshold)):
+            #    # case 1: last one was also a D (so q_index did not advance)
+            #    # case 2: both QVs were good yet still a non-match, penalty!
+            #    ece[offset] = 1
+            # ------------- OLD VERSION -------------------
             cigar_str += 'D'
             s_index += 1
+            last_state = 'D'
         elif record.sAln[offset] == '-':  # insertion
-            if (offset > 0 and cigar_str[-1] == 'I') or (
-                    query_qver_get_func('InsertionQV', q_index) < qv_prob_threshold and
-                    (sID_starts_with_c or subject_qver_get_func1('DeletionQV', s_index) < qv_prob_threshold)):
-                # case 1: last one was also a I (so s_index did not advance)
-                # case 2: both QVs were good yet still a no-match
-                ece[offset] = 1
+            # if last_state != 'I':
+            #     last_tracking_nt = record.qAln[q_index]
+            #     homopolymer_so_far = True
+            #     ece[offset] = 1
+            # else:
+            #     homopolymer_so_far = (record.qAln[q_index] == last_tracking_nt)
+            #     if not homopolymer_so_far:
+            #         ece[offset] = 1
+
+            # for insertion, cases where consider a non-match
+            # (1) IF last position was not "I"
+            #        case 1a: both query and subject has very good prob
+            # (2) IF last position was "I" (s_index did not advance)
+            #        case 2a: both query and subject has very good prob
+            #        case 2b: query has good prob; subject has bad prob AND last-cur pos is NOT homopolymer
+            q_is_good = query_qver_get_func('InsertionQV', q_index) < mean_qv_for_q
+            s_is_good = sID_starts_with_c or subject_qver_get_func1('DeletionQV', s_index) < mean_qv_for_s
+
+            if last_state != 'I':
+                last_tracking_nt = record.qAln[offset]
+                homopolymer_so_far = True
+                if (q_is_good and s_is_good):
+                    ece[offset] = 1
+            else: # already in "I" state, s_index did not advance, s_is_good is the same
+                homopolymer_so_far = (record.qAln[offset] == last_tracking_nt)
+                if q_is_good and (s_is_good or not homopolymer_so_far):
+                    ece[offset] = 1
+
+            # ------------- OLD VERSION -------------------
+            #if (offset > 0 and cigar_str[-1] == 'I') or (
+            #        query_qver_get_func('InsertionQV', q_index) < qv_prob_threshold and
+            #        (sID_starts_with_c or subject_qver_get_func1('DeletionQV', s_index) < qv_prob_threshold)):
+            #    # case 1: last one was also a I (so s_index did not advance)
+            #    # case 2: both QVs were good yet still a no-match
+            #    ece[offset] = 1
+            # ------------- OLD VERSION -------------------
             cigar_str += 'I'
             q_index += 1
+            last_state = 'I'
         else:  # substitution
             cigar_str += 'S'
-            if query_qver_get_func('SubstitutionQV', q_index) < qv_prob_threshold and \
-               (sID_starts_with_c or subject_qver_get_func('SubstitutionQV', s_index) < qv_prob_threshold):
+            if query_qver_get_func('SubstitutionQV', q_index) < mean_qv_for_q and \
+               (sID_starts_with_c or subject_qver_get_func('SubstitutionQV', s_index) < mean_qv_for_s):
                 ece[offset] = 1
             q_index += 1
             s_index += 1
+            last_state = 'S'
+
 
     return cigar_str, ece
 
@@ -208,8 +328,8 @@ class HitItem(object):
 
 
 def blasr_against_ref(output_filename, is_FL, sID_starts_with_c,
-                      qver_get_func, qv_prob_threshold=.03,
-                      ece_penalty=1, ece_min_len=20, same_strand_only=True):
+                      qver_get_func, qvmean_get_func, qv_prob_threshold=.03,
+                      ece_penalty=1, ece_min_len=20, same_strand_only=True, max_missed_start=200, max_missed_end=50):
     """
     Excluding criteria:
     (1) self hit
@@ -244,7 +364,7 @@ def blasr_against_ref(output_filename, is_FL, sID_starts_with_c,
             # low identity not allowed
             # opposite strand not allowed!
             if (cID == r.qID or
-                    r.identity < 90. or
+                    r.identity < 70. or
                     (r.strand == '-' and same_strand_only)):
                 yield HitItem(qID=r.qID, cID=cID)
                 continue
@@ -252,16 +372,17 @@ def blasr_against_ref(output_filename, is_FL, sID_starts_with_c,
             # full-length case: allow up to 200bp of 5' not aligned
             # and 50bp of 3' not aligned
             # non-full-length case: not really tested...don't use
-            if is_FL and (r.sStart > 200 or r.qStart > 200 or
-                          (r.sLength - r.sEnd > 50) or
-                          (r.qLength - r.qEnd > 50)):
+            if is_FL and (r.sStart > max_missed_start or r.qStart > max_missed_start or
+                          (r.sLength - r.sEnd > max_missed_end) or
+                          (r.qLength - r.qEnd > max_missed_end)):
                 yield HitItem(qID=r.qID, cID=cID)
             else:
                 cigar_str, ece_arr = eval_blasr_alignment(
                     record=r,
                     qver_get_func=qver_get_func,
                     sID_starts_with_c=sID_starts_with_c,
-                    qv_prob_threshold=qv_prob_threshold)
+                    qv_prob_threshold=qv_prob_threshold,
+                    qvmean_get_func=qvmean_get_func)
 
                 if alignment_has_large_nonmatch(ece_arr,
                                                 ece_penalty, ece_min_len):

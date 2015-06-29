@@ -52,10 +52,10 @@ class IceOptions(object):
 
     """Define ICE related options."""
 
-    def __init__(self, cDNA_size="under1k", flnc_reads_per_split=20000,
-            ece_penalty=1, ece_min_len=20, bestn=24, quiver=False, use_finer_qv=False):
+    def __init__(self, flnc_reads_per_split=20000,
+            ece_penalty=1, ece_min_len=20, bestn=24, quiver=False, use_finer_qv=False, targeted_isoseq=False):
                  #nfl_reads_per_split=30000):
-        self.cDNA_size = str(cDNA_size)
+        self.cDNA_size = "under1k"   # set a default, this will be automatically changed in IceIterative later
         self.ece_penalty = int(ece_penalty)
         self.ece_min_len = int(ece_min_len)
         self.bestn = int(bestn)
@@ -65,6 +65,13 @@ class IceOptions(object):
         self.use_finer_qv = use_finer_qv
         # nfl reads per split (Liz: moving this to group with --nfl_fa)
         #self.nfl_reads_per_split = int(nfl_reads_per_split)
+        self.targeted_isoseq = targeted_isoseq
+
+        # (Liz) for targeted iso-seq, set this to a much smaller fragment to deal with the fact
+        # that almost everything is going to be a match!
+        if self.targeted_isoseq:
+            self.flnc_reads_per_split = 2000
+
 
     @classmethod
     def cDNA_sizeBins(cls):
@@ -84,7 +91,7 @@ class IceOptions(object):
     @property
     def minLength(self):
         """
-        Used by daligner for minimum length
+        Used by DALIGNER for minimum length
         """
         if self.cDNA_size not in IceOptions.cDNA_sizeBins():
             raise ValueError("Invalid cDNA size: {cs}".

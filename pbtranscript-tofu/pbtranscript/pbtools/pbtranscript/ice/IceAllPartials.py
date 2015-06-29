@@ -206,7 +206,7 @@ class IceAllPartials(IceFiles):
         while stop is not True:
             stop = all(op.exists(p) for p in pickle_filenames) and \
                 all(op.exists(d) for d in done_filenames)
-            sleep_time = min(600, sleep_time + 10) # wait in increments of 10 sec, up to 10 min
+            sleep_time = min(60, sleep_time + 10) # wait in increments of 10 sec, up to 1 min
             time.sleep(sleep_time)
             self.add_log("Waiting for pickles to be created: {ps}".
                          format(ps=", ".join([p for p in pickle_filenames

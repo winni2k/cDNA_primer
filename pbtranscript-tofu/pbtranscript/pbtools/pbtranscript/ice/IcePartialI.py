@@ -293,7 +293,8 @@ class IcePartialI(object):
                                        ccs_fofn=self.ccs_fofn,
                                        done_filename=done_file,
                                        use_finer_qv=False,
-                                       cpus=self.blasr_nproc)
+                                       cpus=self.blasr_nproc,
+                                       no_qv_or_aln_checking=True)
         # replaced by dagliner above
         #build_uc_from_partial(input_fasta=input_fasta,
         #                      ref_fasta=ref_fasta,

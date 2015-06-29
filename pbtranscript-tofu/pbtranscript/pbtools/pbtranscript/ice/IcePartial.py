@@ -51,6 +51,7 @@ import sys
 import os.path as op
 import logging
 import time
+import numpy as np
 from cPickle import dump
 from pbcore.io import FastaReader
 from pbcore.util.Process import backticks
@@ -58,7 +59,7 @@ from pbtools.pbtranscript.Utils import realpath, touch, real_upath
 from pbtools.pbtranscript.PBTranscriptOptions import add_fofn_arguments
 from pbtools.pbtranscript.ice.ProbModel import ProbFromModel, ProbFromQV, ProbFromFastq
 from pbtools.pbtranscript.ice.IceUtils import blasr_against_ref
-from pbtools.pbtranscript.ice.IceUtils import ice_fa2fq
+from pbtools.pbtranscript.ice.IceUtils import ice_fa2fq, get_daligner_sensitivity_setting
 from pbtools.pbtranscript.icedalign.IceDalignUtils import DazzIDHandler, DalignerRunner
 from pbtools.pbtranscript.icedalign.IceDalignReader import dalign_against_ref
 
@@ -83,6 +84,8 @@ def build_uc_from_partial_daligner(input_fasta, ref_fasta, out_pickle,
     out_pickle = realpath(out_pickle)
     output_dir = os.path.dirname(out_pickle)
 
+    daligner_sensitive_mode, _low, _high = get_daligner_sensitivity_setting(ref_fasta)
+
     # DB should always be already converted
     ref_obj = DazzIDHandler(ref_fasta, True)
     input_obj = DazzIDHandler(input_fasta, False)
@@ -91,7 +94,7 @@ def build_uc_from_partial_daligner(input_fasta, ref_fasta, out_pickle,
     runner = DalignerRunner(input_fasta, ref_fasta, is_FL=False, same_strand_only=False, \
                             query_converted=True, db_converted=True, query_made=False, \
                             db_made=True, use_sge=False, cpus=cpus)
-    las_filenames, las_out_filenames = runner.runHPC(min_match_len=300, output_dir=output_dir)
+    las_filenames, las_out_filenames = runner.runHPC(min_match_len=300, output_dir=output_dir, sensitive_mode=daligner_sensitive_mode)
 
     if no_qv_or_aln_checking:
         # not using QVs or alignment checking!
@@ -129,10 +132,11 @@ def build_uc_from_partial_daligner(input_fasta, ref_fasta, out_pickle,
                                  is_FL=False,
                                  sID_starts_with_c=True,
                                  qver_get_func=probqv.get_smoothed,
+                                 qvmean_get_func=probqv.get_mean,
                                  ece_penalty=1,
                                  ece_min_len=20,
                                  same_strand_only=False,
-                                 no_qv_or_aln_checking=True)
+                                 no_qv_or_aln_checking=no_qv_or_aln_checking)
         for h in hitItems:
             if h.ece_arr is not None:
                 if h.cID not in partial_uc:
@@ -225,6 +229,7 @@ def build_uc_from_partial(input_fasta, ref_fasta, out_pickle,
     hitItems = blasr_against_ref(output_filename=m5_file,
                                  is_FL=False,
                                  sID_starts_with_c=True,
+                                 qvmean_get_func=probqv.get_mean,
                                  qver_get_func=probqv.get_smoothed,
                                  ece_penalty=1,
                                  ece_min_len=10,
@@ -318,7 +323,8 @@ class IcePartialOne(object):
                                        out_pickle=self.out_pickle,
                                        ccs_fofn=self.ccs_fofn,
                                        use_finer_qv=self.use_finer_qv,
-                                       cpus=self.blasr_nproc)
+                                       cpus=self.blasr_nproc,
+                                       no_qv_or_aln_checking=True)
         # replaced by dagliner above
         #build_uc_from_partial(input_fasta=self.input_fasta,
         #                      ref_fasta=self.ref_fasta,

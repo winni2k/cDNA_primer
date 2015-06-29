@@ -11,6 +11,7 @@ pbtools.pbtranscript.egg-info/top_level.txt
 pbtools/pbtranscript/Classifier.py
 pbtools/pbtranscript/Cluster.py
 pbtools/pbtranscript/ClusterOptions.py
+pbtools/pbtranscript/ClusterTest.py
 pbtools/pbtranscript/PBTranscriptException.py
 pbtools/pbtranscript/PBTranscriptOptions.py
 pbtools/pbtranscript/Polish.py

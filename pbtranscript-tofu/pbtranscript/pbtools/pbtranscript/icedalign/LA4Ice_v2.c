@@ -58,28 +58,22 @@
 #include "DB.h"
 #include "align.h"
 
-int ORDER(const void *l, const void *r)
-{ int x = *((int32 *) l);
-  int y = *((int32 *) r);
-  return (x-y);
-}
-
 static char *Usage[] =
-    { "[-carUF] [-i<int(4)>] [-w<int(100)>] [-b<int(10)>] ",
+    { "[-carmEUF] [-i<int(4)>] [-w<int(100)>] [-b<int(10)>] ",
       "         [<src1:db|dam> [ <src2:db|dam> ] <align:las> [ <reads:range> ... ]"
     };
 
 #define LAST_READ_SYMBOL  '$'
 
-/*static char *Usage[] =
-    { "[-mcoU] [-(a|r|f):<db>] [-i<int(4)>] [-w<int(100)>] [-b<int(10)>] ",
-      "       <align:las> [ <reads:range> ... ]"
-    };
-*/
+static int ORDER(const void *l, const void *r)
+{ int x = *((int32 *) l);
+  int y = *((int32 *) r);
+  return (x-y);
+}
 
 int main(int argc, char *argv[])
 { HITS_DB   _db1, *db1 = &_db1; 
-  HITS_DB   _db2, *db2 = &_db2;
+  HITS_DB   _db2, *db2 = &_db2; 
   Overlap   _ovl, *ovl = &_ovl;
   Alignment _aln, *aln = &_aln;
 
@@ -88,12 +82,12 @@ int main(int argc, char *argv[])
   int     tspace, tbytes, small;
   int     reps, *pts;
 
-  int     ALIGN, FALCON, CARTOON, OVERLAP, REFERENCE, FLIP;
-  int     ICE_FL;  // used to denote whether to filter for only FL-to-FL alignments
+  int     ALIGN, CARTOON, REFERENCE, FLIP;
   int     INDENT, WIDTH, BORDER, UPPERCASE;
-  int     M4OVL;
-  int     SEED_MIN;
   int     ISTWO;
+  int     ICE_FL;
+  int     M4OVL;
+  int     FALCON;  // this is always set to 1 for ICE
 
   //  Process options
 
@@ -101,25 +95,20 @@ int main(int argc, char *argv[])
     int    flags[128];
     char  *eptr;
 
-    ARG_INIT("LA4Ice")
+    ARG_INIT("LA4Ice_v2")
 
-    ALIGN     = 0;
-    M4OVL     = 0;
-    REFERENCE = 0;
-    FALCON    = 0;
-    ICE_FL    = 0; // if 1, means that only display records/alignments for FL-to-FL alignment
     INDENT    = 4;
     WIDTH     = 100;
     BORDER    = 10;
-    SEED_MIN  = 8000;
-    ISTWO     = 0; // if 1, db1 and db2 are different
+    M4OVL     = 0;
+    ICE_FL    = 0;
 
     j = 1;
     for (i = 1; i < argc; i++)
       if (argv[i][0] == '-')
         switch (argv[i][1])
         { default:
-            ARG_FLAGS("carmUF")
+            ARG_FLAGS("carmEUF")
             break;
           case 'i':
             ARG_NON_NEGATIVE(INDENT,"Indent")
@@ -130,58 +119,64 @@ int main(int argc, char *argv[])
           case 'b':
             ARG_NON_NEGATIVE(BORDER,"Alignment border")
             break;
-          case 'H':
-            ARG_POSITIVE(SEED_MIN,"seed threshold (in bp.s)")
-            break;
-          case 'r':
-            REFERENCE = 1;
-          case 'a':
-            ALIGN = 1;
-          case 'f':
-            FALCON = 1;
-            if (argv[i][2] != ':')
-              { fprintf(stderr,"%s: Unrecognizable option %s\n",Prog_Name,argv[i]);
-                exit (1);
-              }
-            if (Open_DB(argv[i]+3,db1))
-              exit (1);
-            Trim_DB(db1);
-            break;
-          case 'q':
-            if (argv[i][2] != ':')
-              { fprintf(stderr,"%s: Unrecognizable option %s\n",Prog_Name,argv[i]);
-                exit (1);
-              }
-            //fprintf(stderr, "reading second db: %s\n", argv[i]);
-            if (Open_DB(argv[i]+3,db2))
-              exit (1);
-            Trim_DB(db2);
-            ISTWO = 1;
-            break;
         }
       else
         argv[j++] = argv[i];
     argc = j;
 
-    if (ISTWO == 0) {
-        db2 = db1;
-    }
-
     UPPERCASE = flags['U'];
     ALIGN     = flags['a'];
-    CARTOON   = flags['c'];
     REFERENCE = flags['r'];
-    FLIP      = flags['F']
-    M4OVL = flags['m'];
-    ICE_FL = flags['E'];
+    CARTOON   = flags['c'];
+    FLIP      = flags['F'];
+    M4OVL     = flags['m'];
+    ICE_FL    = flags['E'];
 
-
-
-    if (argc <= 1)
+    if (argc <= 2)
       { fprintf(stderr,"Usage: %s %s\n",Prog_Name,Usage[0]);
         fprintf(stderr,"       %*s %s\n",(int) strlen(Prog_Name),"",Usage[1]);
         exit (1);
       }
+  }
+
+  //  Open trimmed DB or DB pair
+
+  { int   status;
+    char *pwd, *root;
+    FILE *input;
+
+    ISTWO  = 0;
+    status = Open_DB(argv[1],db1);
+    if (status < 0)
+      exit (1);
+    if (db1->part > 0)
+      { fprintf(stderr,"%s: Cannot be called on a block: %s\n",Prog_Name,argv[1]);
+        exit (1);
+      }
+
+    if (argc > 3)
+      { pwd   = PathTo(argv[3]);
+        root  = Root(argv[3],".las");
+        if ((input = fopen(Catenate(pwd,"/",root,".las"),"r")) != NULL)
+          { ISTWO = 1;
+            fclose(input);
+            status = Open_DB(argv[2],db2);
+            if (status < 0)
+              exit (1);
+            if (db2->part > 0)
+              { fprintf(stderr,"%s: Cannot be called on a block: %s\n",Prog_Name,argv[2]);
+                exit (1);
+              }
+            Trim_DB(db2);
+          }
+        else
+          db2 = db1;
+        free(root);
+        free(pwd);
+      }
+    else
+      db2 = db1;
+    Trim_DB(db1);
   }
 
   //  Process read index arguments into a sorted list of read ranges
@@ -191,31 +186,29 @@ int main(int argc, char *argv[])
     exit (1);
 
   reps = 0;
-  if (argc > 2)
+  if (argc > 3+ISTWO)
     { int   c, b, e;
       char *eptr, *fptr;
 
-      for (c = 2; c < argc; c++)
-        { if (argv[c][0] == '#')
-            { fprintf(stderr,"%s: # is not allowed as range start, '%s'\n",
-                      Prog_Name,argv[c]);
-              exit (1);
+      for (c = 3+ISTWO; c < argc; c++)
+        { if (argv[c][0] == LAST_READ_SYMBOL)
+            { b = db1->nreads;
+              eptr = argv[c]+1;
             }
           else
-            { b = strtol(argv[c],&eptr,10);
-              if (b < 1)
-                { fprintf(stderr,"%s: Non-positive index?, '%d'\n",Prog_Name,b);
+            b = strtol(argv[c],&eptr,10);
+          if (eptr > argv[c])
+            { if (b == 0)
+                { fprintf(stderr,"%s: 0 is not a valid index\n",Prog_Name);
                   exit (1);
                 }
-            }
-          if (eptr > argv[c])
-            { if (*eptr == '\0')
+              if (*eptr == '\0')
                 { pts[reps++] = b;
                   pts[reps++] = b;
                   continue;
                 }
               else if (*eptr == '-')
-                { if (eptr[1] == '#')
+                { if (eptr[1] == LAST_READ_SYMBOL)
                     { e = INT32_MAX;
                       fptr = eptr+2;
                     }
@@ -260,15 +253,17 @@ int main(int argc, char *argv[])
   
   { char  *over, *pwd, *root;
 
-    pwd   = PathTo(argv[1]);
-    root  = Root(argv[1],".las");
+    pwd   = PathTo(argv[2+ISTWO]);
+    root  = Root(argv[2+ISTWO],".las");
     over  = Catenate(pwd,"/",root,".las");
     input = Fopen(over,"r");
     if (input == NULL)
       exit (1);
 
-    fread(&novl,sizeof(int64),1,input);
-    fread(&tspace,sizeof(int),1,input);
+    if (fread(&novl,sizeof(int64),1,input) != 1)
+      SYSTEM_ERROR
+    if (fread(&tspace,sizeof(int),1,input) != 1)
+      SYSTEM_ERROR
 
     if (tspace <= TRACE_XOVR)
       { small  = 1;
@@ -279,11 +274,11 @@ int main(int argc, char *argv[])
         tbytes = sizeof(uint16);
       }
 
-    if (!(FALCON || M4OVL)) 
-      { printf("\n%s: ",root);
+    if (!(M4OVL)) {
+        printf("\n%s: ",root);
         Print_Number(novl,0,stdout);
         printf(" records\n");
-      }
+    }
 
     free(pwd);
     free(root);
@@ -297,18 +292,24 @@ int main(int argc, char *argv[])
     int        tmax;
     int        in, npt, idx, ar;
     int64      tps;
-    int64      p_aread = -1;
-    char buffer[65536];
 
-    if (ALIGN || FALCON)
+    char      *abuffer, *bbuffer;
+    int        ar_wide, br_wide;
+    int        ai_wide, bi_wide;
+    int        mn_wide, mx_wide;
+    int        tp_wide;
+
+    aln->path = &(ovl->path);
+    if (ALIGN || REFERENCE)
       { work = New_Work_Data();
-  
-        aln->path = &(ovl->path);
-        aln->aseq = New_Read_Buffer(db2);
-        aln->bseq = New_Read_Buffer(db1);
+        abuffer = New_Read_Buffer(db1);
+        bbuffer = New_Read_Buffer(db2);
       }
     else
-      work = NULL;
+      { abuffer = NULL;
+        bbuffer = NULL;
+        work = NULL;
+      }
 
     tmax  = 1000;
     trace = (uint16 *) Malloc(sizeof(uint16)*tmax,"Allocating trace vector");
@@ -319,6 +320,33 @@ int main(int argc, char *argv[])
     npt = pts[0];
     idx = 1;
 
+    ar_wide = Number_Digits((int64) db1->nreads);
+    br_wide = Number_Digits((int64) db2->nreads);
+    ai_wide = Number_Digits((int64) db1->maxlen);
+    bi_wide = Number_Digits((int64) db2->maxlen);
+    if (db1->maxlen < db2->maxlen)
+      { mn_wide = ai_wide;
+        mx_wide = bi_wide;
+        tp_wide = Number_Digits((int64) db1->maxlen/tspace+2);
+      }
+    else
+      { mn_wide = bi_wide;
+        mx_wide = ai_wide;
+        tp_wide = Number_Digits((int64) db2->maxlen/tspace+2);
+      }
+    ar_wide += (ar_wide-1)/3;
+    br_wide += (br_wide-1)/3;
+    ai_wide += (ai_wide-1)/3;
+    bi_wide += (bi_wide-1)/3;
+    mn_wide += (mn_wide-1)/3;
+    tp_wide += (tp_wide-1)/3;
+
+    if (FLIP)
+      { int x;
+        x = ar_wide; ar_wide = br_wide; br_wide = x;
+        x = ai_wide; ai_wide = bi_wide; bi_wide = x;
+      }
+
     //  For each record do
 
     for (j = 0; j < novl; j++)
@@ -327,7 +355,7 @@ int main(int argc, char *argv[])
 
       { Read_Overlap(input,ovl);
         if (ovl->path.tlen > tmax)
-          { tmax = 1.2*ovl->path.tlen + 100;
+          { tmax = ((int) 1.2*ovl->path.tlen) + 100;
             trace = (uint16 *) Realloc(trace,sizeof(uint16)*tmax,"Allocating trace vector");
             if (trace == NULL)
               exit (1);
@@ -361,28 +389,11 @@ int main(int argc, char *argv[])
         if (!in)
           continue;
 
-        if (OVERLAP && !FALCON)
-          { if (ovl->path.abpos != 0 && ovl->path.bbpos != 0)
-              continue;
-            if (ovl->path.aepos != ovl->alen && ovl->path.bepos != ovl->blen)
-              continue;
-          }
-
-        if (OVERLAP && FALCON)
-          { if (ovl->path.abpos > 1000 && ovl->path.bbpos > 1000)
-              continue;
-            if (ovl->alen - ovl->path.aepos > 1000 && ovl->blen - ovl->path.bepos > 1000)
-              continue;
-            if (ovl->alen < SEED_MIN)
-              continue;
-
-          }
-
         // move calculation of sStart and sEnd (bbpos, bepos) up here since both ICE and M4OVL uses it
         int64 bbpos, bepos;
         if (COMP(ovl->flags)) {
-            bbpos = (int64) ovl->blen - (int64) ovl->path.bepos;
-            bepos = (int64) ovl->blen - (int64) ovl->path.bbpos;
+            bbpos = (int64) db2->reads[ovl->bread].rlen - (int64) ovl->path.bepos;
+            bepos = (int64) db2->reads[ovl->bread].rlen - (int64) ovl->path.bbpos;
         } else {
             bbpos = (int64) ovl->path.bbpos;
             bepos = (int64) ovl->path.bepos;
@@ -395,178 +406,168 @@ int main(int argc, char *argv[])
             // (2) qEnd + 50 > qLen and sEnd + 50 > qLen
             if (ovl->path.abpos > 200 || bbpos > 200)
                 continue;
-            if (ovl->path.aepos + 50 < ovl->alen)
+            if (ovl->path.aepos + 50 < db1->reads[ovl->aread].rlen)
                 continue;
-            if (bepos + 50 < ovl->blen)
+            if (bepos + 50 < db2->reads[ovl->bread].rlen)
                 continue;
         }
-        
 
         //  Display it
 
+        aln->alen  = db1->reads[ovl->aread].rlen;
+        aln->blen  = db2->reads[ovl->bread].rlen;
+        aln->flags = ovl->flags;
+        tps        = ((ovl->path.aepos-1)/tspace - ovl->path.abpos/tspace);
+
+
         if (M4OVL) {
             double acc;
-
-            tps = ((ovl->path.aepos-1)/tspace - ovl->path.abpos/tspace);
-            aln->alen  = ovl->alen;
-            aln->blen  = ovl->blen;
-            aln->flags = ovl->flags;
-
-
-            /*if (COMP(ovl->flags)) {
-                bbpos = (int64) ovl->blen - (int64) ovl->path.bepos;
-                bepos = (int64) ovl->blen - (int64) ovl->path.bbpos;
-            } else {
-                bbpos = (int64) ovl->path.bbpos;
-                bepos = (int64) ovl->path.bepos;
-            }*/
             acc = 100-(200. * ovl->path.diffs)/( ovl->path.aepos - ovl->path.abpos + ovl->path.bepos - ovl->path.bbpos);
 
             printf("%09lld %09lld %lld %5.2f ", (int64) ovl->aread, (int64) ovl->bread,  (int64) bbpos - (int64) bepos, acc);
-            printf("0 %lld %lld %lld ", (int64) ovl->path.abpos, (int64) ovl->path.aepos, (int64) ovl->alen);
-            printf("%d %lld %lld %lld ", COMP(ovl->flags), bbpos, bepos, (int64) ovl->blen);
-            if ( ((int64) ovl->blen < (int64) ovl->alen) && ((int64) ovl->path.bbpos < 1) && ((int64) ovl->blen - (int64) ovl->path.bepos < 1) ) 
+            printf("0 %lld %lld %lld ", (int64) ovl->path.abpos, (int64) ovl->path.aepos, (int64) aln->alen);
+            printf("%d %lld %lld %lld ", COMP(ovl->flags), bbpos, bepos, (int64) aln->blen);
+            if ( ((int64) aln->blen < (int64) aln->alen) && ((int64) ovl->path.bbpos < 1) && ((int64) aln->blen - (int64) ovl->path.bepos < 1) )
               {
                 printf("contains\n");
               }
-            else if ( ((int64) ovl->alen < (int64) ovl->blen) && ((int64) ovl->path.abpos < 1) && ((int64) ovl->alen - (int64) ovl->path.aepos < 1) ) 
+            else if ( ((int64) aln->alen < (int64) aln->blen) && ((int64) ovl->path.abpos < 1) && ((int64) aln->alen - (int64) ovl->path.aepos < 1) )
               {
                 printf("contained\n");
               }
-            else 
+            else
               {
                 printf("overlap\n");
               }
 
         }
-        /*
-        if (FALCON) {
 
-            tps = ((ovl->path.aepos-1)/tspace - ovl->path.abpos/tspace);
-            aln->alen  = ovl->alen;
-            aln->blen  = ovl->blen;
-            aln->flags = ovl->flags;
 
-            
-            if (p_aread == -1) {
-                Load_Read(db1,ovl->aread,aln->aseq,2);
-                printf("%08d %s\n", ovl->aread, aln->aseq);
-                p_aread = ovl->aread;
-            }
-            if (p_aread != ovl -> aread ) {
-                printf("+ +\n");
-                Load_Read(db1,ovl->aread,aln->aseq,2);
-                printf("%08d %s\n", ovl->aread, aln->aseq);
-                p_aread = ovl->aread;
-            }
+        //if (ALIGN || CARTOON || REFERENCE)
+        //  printf("\n");
 
-            Load_Read(db1,ovl->bread,aln->bseq,0);
-            p_aread = ovl->aread;
-            if (COMP(aln->flags))
-              Complement_Seq(aln->bseq);
-            Upper_Read(aln->bseq);
-            strncpy( buffer, aln->bseq + ovl->path.bbpos, (int64) ovl->path.bepos - (int64) ovl->path.bbpos );
-            buffer[ (int64) ovl->path.bepos - (int64) ovl->path.bbpos - 1] = '\0';
-            printf("%08d %s\n", ovl->bread, buffer);
-
-        }
-        */
-
-        if (CARTOON || ALIGN)
-            printf("\n");
-        if (!(FALCON || M4OVL)) 
-          {
-            Print_Number((int64) ovl->aread+1,10,stdout);
-            printf("  ");
-            Print_Number((int64) ovl->bread+1,9,stdout);
+        if (!M4OVL) {
+            if (FLIP)
+              { Flip_Alignment(aln,0);
+                Print_Number((int64) ovl->bread+1,ar_wide+1,stdout);
+                printf("  ");
+                Print_Number((int64) ovl->aread+1,br_wide+1,stdout);
+              }
+            else
+              { Print_Number((int64) ovl->aread+1,ar_wide+1,stdout);
+                printf("  ");
+                Print_Number((int64) ovl->bread+1,br_wide+1,stdout);
+              }
             if (COMP(ovl->flags))
               printf(" c");
             else
               printf(" n");
             printf("   [");
-            Print_Number((int64) ovl->path.abpos,6,stdout);
+            Print_Number((int64) ovl->path.abpos,ai_wide,stdout);
             printf("..");
-            Print_Number((int64) ovl->path.aepos,6,stdout);
+            Print_Number((int64) ovl->path.aepos,ai_wide,stdout);
             printf("] x [");
-            Print_Number((int64) ovl->path.bbpos,6,stdout);
+            Print_Number((int64) ovl->path.bbpos,bi_wide,stdout);
             printf("..");
-            Print_Number((int64) ovl->path.bepos,6,stdout);
+            Print_Number((int64) ovl->path.bepos,bi_wide,stdout);
             printf("]");
-         }
-/*
-{ int u;
-  if (small)
-    for (u = 0; u < ovl->path.tlen-1; u++)
-    // for (u = 1; u < ovl->path.tlen-2; u += 2)
-      printf("  %3d\n",((uint8 *) ovl->path.trace)[u]);
-  else
-    for (u = 0; u < ovl->path.tlen-1; u++)
-    // for (u = 1; u < ovl->path.tlen-2; u += 2)
-      printf("  %3d\n",((uint16 *) ovl->path.trace)[u]);
-}
-*/
+        }
 
-        // tps = ((ovl->path.aepos-1)/tspace - ovl->path.abpos/tspace) + 1;
-        tps = ((ovl->path.aepos-1)/tspace - ovl->path.abpos/tspace);
-        if (ALIGN)
-          { if (small)
-              Decompress_TraceTo16(ovl);
-            aln->alen  = ovl->alen;
-            aln->blen  = ovl->blen;
-            aln->flags = ovl->flags;
-            Load_Read(db2,ovl->aread,aln->aseq,0);
-            Load_Read(db1,ovl->bread,aln->bseq,0);
-            if (COMP(aln->flags))
-              Complement_Seq(aln->bseq);
-            Compute_Trace_PTS(aln,work,tspace);
-            /*
+        if (ALIGN || CARTOON || REFERENCE)
+          { if (ALIGN || REFERENCE)
+              { char *aseq, *bseq;
+                int   amin,  amax;
+                int   bmin,  bmax;
+
+                if (FLIP)
+                  Flip_Alignment(aln,0);
+                if (small)
+                  Decompress_TraceTo16(ovl);
+
+                amin = ovl->path.abpos - BORDER;
+                if (amin < 0) amin = 0;
+                amax = ovl->path.aepos + BORDER;
+                if (amax > aln->alen) amax = aln->alen;
+                if (COMP(aln->flags))
+                  { bmin = (aln->blen-ovl->path.bepos) - BORDER;
+                    if (bmin < 0) bmin = 0;
+                    bmax = (aln->blen-ovl->path.bbpos) + BORDER;
+                    if (bmax > aln->blen) bmax = aln->blen;
+                  }
+                else
+                  { bmin = ovl->path.bbpos - BORDER;
+                    if (bmin < 0) bmin = 0;
+                    bmax = ovl->path.bepos + BORDER;
+                    if (bmax > aln->blen) bmax = aln->blen;
+                  }
+
+                aseq = Load_Subread(db1,ovl->aread,amin,amax,abuffer,0);
+                bseq = Load_Subread(db2,ovl->bread,bmin,bmax,bbuffer,0);
+
+                aln->aseq = aseq - amin;
+                if (COMP(aln->flags))
+                  { Complement_Seq(bseq,bmax-bmin);
+                    aln->bseq = bseq - (aln->blen - bmax);
+                  }
+                else
+                  aln->bseq = bseq - bmin;
+
+                Compute_Trace_PTS(aln,work,tspace);
+
+                if (FLIP)
+                  { if (COMP(aln->flags))
+                      { Complement_Seq(aseq,amax-amin);
+                        Complement_Seq(bseq,bmax-bmin);
+                        aln->aseq = aseq - (aln->alen - amax);
+                        aln->bseq = bseq - bmin;
+                      }
+                    Flip_Alignment(aln,1);
+                  }
+              }
             if (CARTOON)
               { printf("  (");
-                Print_Number(tps,3,stdout);
+                Print_Number(tps,tp_wide,stdout);
                 printf(" trace pts)\n\n");
-                Print_ACartoon(stdout,aln,INDENT);
+                Alignment_Cartoon(stdout,aln,INDENT,mx_wide);
               }
             else
-              {
-                printf(" :   = ");
-                Print_Number((int64) ovl->path.diffs,6,stdout);
-                printf(" diffs  (");
-                Print_Number(tps,3,stdout);
-                printf(" trace pts)\n");
+              { if (!M4OVL) {
+                    printf(" :   = ");
+                    Print_Number((int64) ovl->path.diffs,mn_wide,stdout);
+                    printf(" diffs  (");
+                    Print_Number(tps,tp_wide,stdout);
+                    printf(" trace pts)\n");
+                }
               }
-             */
             if (REFERENCE)
-              Print_Reference(stdout,aln,work,INDENT,WIDTH,BORDER,UPPERCASE,5);
-            else
-              Print_Alignment(stdout,aln,work,INDENT,WIDTH,BORDER,UPPERCASE,5);
+              Print_Reference(stdout,aln,work,INDENT,WIDTH,BORDER,UPPERCASE,mx_wide);
+            if (ALIGN)
+              Print_Alignment(stdout,aln,work,INDENT,WIDTH,BORDER,UPPERCASE,mx_wide);
           }
-        else if (CARTOON)
-          { printf("  (");
-            Print_Number(tps,3,stdout);
-            printf(" trace pts)\n\n");
-            Print_OCartoon(stdout,ovl,INDENT);
-          }
-        if (!(FALCON || M4OVL) ) 
-          {
-            printf(" :   < ");
-            Print_Number((int64) ovl->path.diffs,6,stdout);
+        else
+          { printf(" :   < ");
+            Print_Number((int64) ovl->path.diffs,mn_wide,stdout);
             printf(" diffs  (");
-            Print_Number(tps,3,stdout);
+            Print_Number(tps,tp_wide,stdout);
             printf(" trace pts)\n");
           }
-          
       }
-    if (FALCON) {
+
+    if (M4OVL) {
         printf("+ +\n");
         printf("- -\n");
     }
     free(trace);
     if (ALIGN)
-      { free(aln->bseq-1);
-        free(aln->aseq-1);
+      { free(bbuffer-1);
+        free(abuffer-1);
         Free_Work_Data(work);
       }
   }
+
+  Close_DB(db1);
+  if (ISTWO)
+    Close_DB(db2);
 
   exit (0);
 }

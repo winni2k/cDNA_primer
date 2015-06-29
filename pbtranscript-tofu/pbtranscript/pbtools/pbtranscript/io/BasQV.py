@@ -105,6 +105,7 @@ class basQVcacher:
 
         # subread seqid --> qv_name --> list of qv (transformed to prob)
         self.qv = {}
+        self.qv_mean = {} # seqid --> qv_name --> mean qv
         # smoothing window size, set when presmooth() is called
         self.window_size = None
 
@@ -121,6 +122,9 @@ class basQVcacher:
             return self.qv[seqid][qv_name + '_smoothed']
         else:
             return self.qv[seqid][qv_name + '_smoothed'][position]
+
+    def get_mean(self, seqid, qv_name):
+        return self.qv_mean[seqid][qv_name]
 
     def add_bash5(self, bash5_filename):
         """Add a bas.h5/ccs.h5 to cacher."""
@@ -176,6 +180,8 @@ class basQVcacher:
             c_basQV.precache_helper(bas_file, seqids,
                                     basQVcacher.qv_names, self.qv)
 
+        self.make_qv_mean(seqids)
+
     def presmooth(self, seqids, window_size):
         """
         precache MUST BE already called! Otherwise will have error!
@@ -188,6 +194,12 @@ class basQVcacher:
                 self.qv[seqid][qv_name + '_smoothed'] = \
                     c_basQV.maxval_per_window(self.qv[seqid][qv_name],
                                               window_size)
+
+    def make_qv_mean(self, seqids):
+        for seqid in seqids:
+            self.qv_mean[seqid] = {}
+            for qv_name in self.qv[seqid]:
+                self.qv_mean[seqid][qv_name] = sum(self.qv[seqid][qv_name])*1./len(self.qv[seqid][qv_name])
 
     def remove_unsmoothed(self):
         """Remove unsmoothed QVs."""
@@ -207,7 +219,8 @@ class fastqQVcacher:
     It will simply ignore the <qv_type>.
     """
     def __init__(self):
-        self.qv = {} # subread seqid --> None --> list of qv (transformed to prob)
+        self.qv = {} # seqid --> list of qv (transformed to prob)
+        self.qv_mean = {} # seqid --> qv mean
         self.window_size = None # smoothing window size, set when presmooth() is called
 
     def get(self, seqid, qv_type, position=None):
@@ -228,6 +241,10 @@ class fastqQVcacher:
         else:
             return self.qv[seqid]['smoothed'][position]
 
+    def get_mean(self, seqid, qv_name):
+        # simply ignore qv_name
+        return self.qv_mean[seqid]
+
     def precache_fastq(self, fastq_filename):
         """
         Cache each sequence in the FASTQ file into self.qv
@@ -236,6 +253,7 @@ class fastqQVcacher:
             seqid = r.name.split()[0] 
             self.qv[seqid] = {}
             c_basQV.fastq_precache_helper(seqid, r.quality, self.qv)
+            self.make_qv_mean([seqid])
 
     def presmooth(self, seqids, window_size):
         """
@@ -244,6 +262,10 @@ class fastqQVcacher:
         self.window_size = window_size
         for seqid in seqids:
             self.qv[seqid]['smoothed'] = c_basQV.maxval_per_window(self.qv[seqid]['unsmoothed'], window_size)
+
+    def make_qv_mean(self, seqids):
+        for seqid in seqids:
+            self.qv_mean[seqid] = sum(self.qv[seqid]['unsmoothed']) * 1. /len(self.qv[seqid]['unsmoothed'])
 
     def remove_unsmoothed(self):
         for k,v in self.qv.iteritems():

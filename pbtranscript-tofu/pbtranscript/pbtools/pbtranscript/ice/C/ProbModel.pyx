@@ -34,6 +34,9 @@ class ProbFromFastq:
         """
         return self.qver.get(qID, qvname, position)
 
+    def get_mean(self, qID, qvname):
+        return self.qver.get_mean(qID, qvname)
+
     def add_seqs_from_fastq(self, fastq_filename, smooth=True):
         """Add sequence ids from a fastq file."""
         self.qver.precache_fastq(fastq_filename)
@@ -90,6 +93,9 @@ class ProbFromQV:
         Get QV of read=qID, type=qvname, position=position.
         """
         return self.qver.get(qID, qvname, position)
+
+    def get_mean(self, qID, qvname):
+        return self.qver.get_mean(qID, qvname)
 
     def add_seqs_from_fasta(self, fasta_filename, smooth=True):
         """Add sequence ids from a fasta file."""
@@ -203,16 +209,24 @@ class fakeQVer:
     Used by ProbFromModel to support the fake .get and .getsmoothed
     """
 
-    def __init__(self):
+    def __init__(self, r_mis, r_ins, r_del):
+        self.r_mis = r_mis
+        self.r_ins = r_ins
+        self.r_del = r_del
+        self.err_mean = r_mis + r_ins + r_del
+        self.d = {'DeletionQV': r_del, 'InsertionQV': r_ins, 'SubstitutionQV': r_mis}
         pass
 
     def get(self, seqid, qv_name, position=None):
         """Fake get()."""
-        return 0.
+        return self.d[qv_name]
 
     def get_smoothed(self, seqid, qv_name, position=None):
         """Fake get_smoothed."""
-        return 0.
+        return self.d[qv_name]
+
+    def get_mean(self, seqid, qv_name):
+        return self.err_mean
 
 
 class ProbFromModel:
@@ -220,12 +234,12 @@ class ProbFromModel:
     """Probability model from fixed indel/substitution rates."""
 
     def __init__(self, r_mis, r_ins, r_del):
-        self.qver = fakeQVer()
         self.r_mis = r_mis
         self.r_ins = r_ins
         self.r_del = r_del
         self.r_mat = 1 - r_mis - r_ins - r_del
         assert self.r_mat > 0
+        self.qver = fakeQVer(r_mis, r_ins, r_del)
 
     def add_seqs_from_fasta(self, fasta_filename, smooth=True):
         """dummy, nothing to do"""
@@ -247,6 +261,9 @@ class ProbFromModel:
         """Get smoothed QV for seqid, qv_name, position."""
         return self.qver.get_smoothed(seqid=seqid, qv_name=qv_name,
                                       position=position)
+
+    def get_mean(self, seqid, qv_name):
+        return self.qver.get_mean(seqid, qv_name)
 
     def calc_prob_from_aln(self, qID, qStart, qEnd, fakecigar):
         """Calculate probability from an alingment."""

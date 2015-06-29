@@ -54,8 +54,9 @@ class LAshowAlignReader:
 
 
 def dalign_against_ref(dazz_query_obj, dazz_db_obj, las_out_filename, is_FL, sID_starts_with_c,
-                      qver_get_func, qv_prob_threshold=.03,
-                      ece_penalty=1, ece_min_len=20, same_strand_only=True, no_qv_or_aln_checking=False):
+                      qver_get_func, qvmean_get_func, qv_prob_threshold=.03,
+                      ece_penalty=1, ece_min_len=20, same_strand_only=True, no_qv_or_aln_checking=False,
+                      max_missed_start=200, max_missed_end=50):
     """
     Excluding criteria:
     (1) self hit
@@ -112,16 +113,17 @@ def dalign_against_ref(dazz_query_obj, dazz_db_obj, las_out_filename, is_FL, sID
 
         # full-length case: allow up to 200bp of 5' not aligned
         # and 50bp of 3' not aligned
-        if (is_FL and (r.sStart > 200 or r.qStart > 200 or
-                      (r.sLength - r.sEnd > 50) or
-                      (r.qLength - r.qEnd > 50))):
+        if (is_FL and (r.sStart > max_missed_start or r.qStart > max_missed_start or
+                      (r.sLength - r.sEnd > max_missed_end) or
+                      (r.qLength - r.qEnd > max_missed_end))):
             yield HitItem(qID=r.qID, cID=cID)
         else:
             cigar_str, ece_arr = eval_blasr_alignment(
                     record=r,
                     qver_get_func=qver_get_func,
                     sID_starts_with_c=sID_starts_with_c,
-                    qv_prob_threshold=qv_prob_threshold)
+                    qv_prob_threshold=qv_prob_threshold,
+                    qvmean_get_func=qvmean_get_func)
             #else: # don't use QV, just look at alignment
 
 

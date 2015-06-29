@@ -140,7 +140,7 @@ class DalignerRunner:
             num_blocks = int(x.split('=')[1])
         return num_blocks
 
-    def runHPC(self, min_match_len=300, output_dir='.'):
+    def runHPC(self, min_match_len=300, output_dir='.', sensitive_mode=False):
         """
         ex: daligner -h35 -e.80 -l500 -s100 <query> <db>
 
@@ -168,8 +168,14 @@ class DalignerRunner:
                 if self.query_filename == self.db_filename and i > j:
                     continue
 
-                cmd = "daligner -h35 -k12 -e.70 -l{m} -s100 -t10 {q}.{i} {db}.{j}".format(\
-                    q=self.query_dazz_handler.dazz_filename, i=i+1, \
+                # old DALIGNER param is not sensitive enough for > 5 kb CCS reads
+                # but the more sensitive param seems to do badly on 1 - 2 kb reads. WTH =_=
+                #if not sensitive_mode:
+                #    cmd = "daligner -h35 -k16 -e.70 -l{m} -s100 -t10 {q}.{i} {db}.{j}"
+                #else:
+                cmd = "daligner -w12 -h24 -k24 -e.70 -l{m} -s100 -t10 {q}.{i} {db}.{j}"
+
+                cmd = cmd.format(q=self.query_dazz_handler.dazz_filename, i=i+1, \
                     db=self.db_dazz_handler.dazz_filename, j=j+1, \
                     m=min_match_len)
                 cmds_daligner.append(cmd)
@@ -180,7 +186,7 @@ class DalignerRunner:
                     p = "{q}.{i}.{db}.{j}.N{k}.las".format(\
                         q=self.query_dazz_handler.dazz_filename, i=i+1, \
                         db=os.path.basename(self.db_dazz_handler.dazz_filename), j=j+1, k=k)
-                    cmd_ice = cmd + " -m -i0 -w100000 -b0 -a:{db} -q:{dbq} {p} > {p}.out".format(\
+                    cmd_ice = cmd + " -a -m -i0 -w100000 -b0 {dbq} {db} {p} > {p}.out".format(\
                         p=p, db=self.db_dazz_handler.dazz_filename,\
                         dbq=self.query_dazz_handler.dazz_filename)
                     cmds_show.append(cmd_ice)
@@ -191,7 +197,7 @@ class DalignerRunner:
                         p = "{q}.{i}.{db}.{j}.C{k}.las".format(\
                             q=self.query_dazz_handler.dazz_filename, i=i+1, \
                             db=os.path.basename(self.db_dazz_handler.dazz_filename), j=j+1, k=k)
-                        cmd_ice = cmd + " -m -i0 -w100000 -b0 -a:{db} -q:{dbq} {p} > {p}.out".format(\
+                        cmd_ice = cmd + " -a -m -i0 -w100000 -b0 {dbq} {db} {p} > {p}.out".format(\
                             p=p, db=self.db_dazz_handler.dazz_filename,\
                             dbq=self.query_dazz_handler.dazz_filename)
                         cmds_show.append(cmd_ice)
