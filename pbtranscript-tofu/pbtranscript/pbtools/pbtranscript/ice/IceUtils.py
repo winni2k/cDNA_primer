@@ -98,11 +98,11 @@ def sanity_check_sge(sge_opts, scriptDir, testDirName="gcon_test_dir"):
     assert(op.exists(testSh))
     cmd = "qsub"
     if sge_opts.sge_queue is not None:
-        cmd += " -q " + self.sge_opts.sge_queue
-    cmd += " -sync y -pe {env} 1 -cwd -S /bin/bash -V " + \
-          "-e /dev/null -o /dev/null {t}".\
+        cmd += " -q " + sge_opts.sge_queue
+    cmd += " -sync y -pe {env} 1 -cwd -S /bin/bash -V -e /dev/null -o /dev/null {t}".\
           format(t=real_upath(testSh), env=sge_opts.sge_env_name)
-    logging.debug("Submitting cmd: " + cmd)
+    print >> sys.stderr, "CMD:", cmd
+    logging.info("Submitting cmd: " + cmd)
     _out, _code, _msg = backticks(cmd)
 
 #    answer = FastaReader(GCON_OUT_FA).__iter__().next()
