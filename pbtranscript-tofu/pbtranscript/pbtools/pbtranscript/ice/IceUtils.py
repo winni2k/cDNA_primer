@@ -18,6 +18,7 @@ from pbtools.pbtranscript.Utils import realpath, mkdir, \
 from pbtools.pbtranscript.io.BLASRRecord import BLASRM5Reader
 from pbtools.pbtranscript.findECE import findECE
 from pbtools.pbtranscript.io.BasQV import basQVcacher
+from pbtools.pbtranscript.icedalign.IceDalignUtils import DazzIDHandler, DalignerRunner
 
 __author__ = 'etseng@pacificbiosciences.com'
 
@@ -29,6 +30,35 @@ dataDir = op.join(op.dirname(op.dirname(op.realpath(__file__))), "data")
 GCON_IN_FA = op.join(dataDir, "gcon_in.fa")
 GCON_OUT_FA = op.join(dataDir, "gcon_out.fa")
 
+def sanity_check_daligner(scriptDir, testDirName="daligner_test_dir"):
+    """
+    Run daligner on gcon_in.fa, but don't care about results.
+    Just make sure it runs.
+    """
+    scriptDir = realpath(scriptDir)
+    testDir = op.join(scriptDir, testDirName)
+
+    if not op.exists(scriptDir):
+        os.makedirs(scriptDir)
+    if not op.exists(testDir):
+        os.makedirs(testDir)
+
+    testInFa = op.join(testDir, "gcon_in.fa")
+    if op.exists(testInFa):
+        os.remove(testInFa)
+    shutil.copy(GCON_IN_FA, testInFa)
+    assert(op.exists(testInFa))
+
+    obj = DazzIDHandler(testInFa)
+    DalignerRunner.make_db(obj.dazz_filename)
+    runner = DalignerRunner(testInFa, testInFa, is_FL=True, same_strand_only=True, \
+                            query_converted=True, db_converted=True, query_made=True, \
+                            db_made=True, use_sge=False, cpus=4, sge_opts=None)
+    runner.runHPC(min_match_len=300, output_dir=testDir, sensitive_mode=False)
+
+    shutil.rmtree(testDir)
+    logging.info("daligner check passed.")
+    return True
 
 def sanity_check_gcon():
     """Sanity check gcon."""
@@ -40,7 +70,7 @@ def sanity_check_gcon():
     return gcon_py
 
 
-def sanity_check_sge(scriptDir, testDirName="gcon_test_dir"):
+def sanity_check_sge(sge_opts, scriptDir, testDirName="gcon_test_dir"):
     """Sanity check if sge can work."""
     scriptDir = realpath(scriptDir)
     testDir = op.join(scriptDir, testDirName)
@@ -66,9 +96,12 @@ def sanity_check_sge(scriptDir, testDirName="gcon_test_dir"):
                 " c1\n")
 
     assert(op.exists(testSh))
-    cmd = "qsub -sync y -pe smp 1 -cwd -S /bin/bash -V " + \
+    cmd = "qsub"
+    if sge_opts.sge_queue is not None:
+        cmd += " -q " + self.sge_opts.sge_queue
+    cmd += " -sync y -pe {env} 1 -cwd -S /bin/bash -V " + \
           "-e /dev/null -o /dev/null {t}".\
-          format(t=real_upath(testSh))
+          format(t=real_upath(testSh), env=sge_opts.sge_env_name)
     logging.debug("Submitting cmd: " + cmd)
     _out, _code, _msg = backticks(cmd)
 

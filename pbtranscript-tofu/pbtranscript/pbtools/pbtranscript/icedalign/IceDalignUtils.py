@@ -88,7 +88,7 @@ class DazzIDHandler:
 
 
 class DalignerRunner:
-    def __init__(self, query_filename, db_filename, is_FL, same_strand_only, query_converted=False, db_converted=False, query_made=False, db_made=False, use_sge=True, script_dir="scripts/", cpus=24):
+    def __init__(self, query_filename, db_filename, is_FL, same_strand_only, query_converted=False, db_converted=False, query_made=False, db_made=False, use_sge=True, sge_opts=None, script_dir="scripts/", cpus=24):
         self.query_filename = query_filename
         self.db_filename = db_filename
         self.is_FL = is_FL
@@ -108,6 +108,7 @@ class DalignerRunner:
         self.query_blocks = self.get_num_blocks(self.query_dazz_handler.dazz_filename)
 
         self.use_sge = use_sge
+        self.sge_opts = sge_opts
         self.script_dir = os.path.realpath(script_dir)
 
         if not os.path.exists(self.script_dir):
@@ -215,7 +216,7 @@ class DalignerRunner:
             f.write("#!/bin/bash\n")
             f.write("touch DALIGN.DONE\n")
         if self.use_sge:
-            qsub_job_runner(cmds_daligner, os.path.join(self.script_dir, "daligner_job_{i}.sh"), done_script)
+            qsub_job_runner(cmds_daligner, os.path.join(self.script_dir, "daligner_job_{i}.sh"), done_script, self.sge_opts)
         else:
             local_job_runner(cmds_daligner, num_processes=max(1, min(self.cpus/4, 4))) # max 4 at a time to avoid running out of mem..
         print >> sys.stderr, "daligner jobs took {0} sec".format(time.time()-start_t)
@@ -227,7 +228,7 @@ class DalignerRunner:
         start_t = time.time()
         print cmds_show
         if self.use_sge:
-            qsub_job_runner(cmds_show, os.path.join(self.script_dir, "LA4Ice_job_{i}.sh"), done_script)
+            qsub_job_runner(cmds_show, os.path.join(self.script_dir, "LA4Ice_job_{i}.sh"), done_script, self.sge_opts)
         else:
             local_job_runner(cmds_show, num_processes=max(1, min(self.cpus, 4))) # max 4 at a time to avoid running out of memory...
         print >> sys.stderr, "LA4Ice jobs took {0} sec".format(time.time()-start_t)
@@ -246,7 +247,7 @@ def local_job_runner(cmds_list, num_processes):
             raise RuntimeError, "CMD failed:", cmd
 
 
-def qsub_job_runner(cmds_list, sh_file_format, done_script, qsub_retry=3, run_local_if_qsub_fail=True):
+def qsub_job_runner(cmds_list, sh_file_format, done_script, sge_opts, qsub_retry=3, run_local_if_qsub_fail=True):
     """
     cmds_list -- list of commands to run (each in a separate file)
     sh_file_format ---- ex: test_script.{i}.sh
@@ -263,7 +264,11 @@ def qsub_job_runner(cmds_list, sh_file_format, done_script, qsub_retry=3, run_lo
         f.close()
 
         # hard-coded to 4 CPUS because hard-coded in daligner!
-        qsub_cmd = "qsub -cwd -V -S /bin/bash -pe smp 4 -e {0}.elog -o {0}.olog {0}".format(f.name)
+        qsub_cmd = "qsub"
+        if sge_opts.queue_name is not None:
+            qsub_cmd += " -q " + sge_opts.queue_name
+        qsub_cmd += " -cwd -V -S /bin/bash -pe {env} 4 -e {out}.elog -o {out}.olog {out}".format(\
+            env=sge_opts.sge_env_name, out=f.name)
         try_times = 1
         while try_times <= qsub_retry:
             _out, _code, _msg = backticks(qsub_cmd)
@@ -283,7 +288,10 @@ def qsub_job_runner(cmds_list, sh_file_format, done_script, qsub_retry=3, run_lo
 
     # use a qsub job to wait for the commands to finish
     # ToDo: this is NOT bullet proof! watch for cases where the job may have died or been killed or hung
-    wait_cmd = "qsub -sync y -pe smp 1 -cwd -S /bin/bash -V -e /dev/null -o /dev/null -hold_jid {0} {1}".format(",".join(jids), done_script)
+    wait_cmd = "qsub "
+    if sge_opts.queue_name is not None:
+        wait_cmd += " -q " + sge_opts.queue_name
+    wait_cmd += " -sync y -pe {2} 1 -cwd -S /bin/bash -V -e /dev/null -o /dev/null -hold_jid {0} {1}".format(",".join(jids), done_script, sge_opts.sge_env_name)
     _out, _code, _msg = backticks(wait_cmd)
     if _code != 0: # failed, just wait manually then
         active_jids = [x.split()[0] for x in os.popen("qstat").read().strip().split('\n')[2:]]

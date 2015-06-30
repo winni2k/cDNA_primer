@@ -21,7 +21,8 @@ from pbtools.pbtranscript.ice.IceInit import IceInit
 from pbtools.pbtranscript.ice.IceUtils import sanity_check_gcon, \
     sanity_check_sge, possible_merge, blasr_against_ref, \
     get_the_only_fasta_record, cid_with_annotation, \
-    get_daligner_sensitivity_setting
+    get_daligner_sensitivity_setting, \
+    sanity_check_daligner
 from pbtools.pbtranscript.ice.IceFiles import IceFiles, wait_for_sge_jobs
 from pbtools.pbtranscript.ice_pbdagcon import runConsensus
 from pbtools.pbtranscript.ice.IceUtils import ice_fa2fq
@@ -102,11 +103,12 @@ class IceIterative(IceFiles):
         # The number of iterations (i.e. run_gcon_parallel_helper is called.)
         self.iterNum = 0
 
-        # Sanity check gcon and sge
+        # Sanity check gcon and sge and daligner
+        sanity_check_daligner(self.script_dir)
         self.gcon_py = sanity_check_gcon()
         self.use_sge = sge_opts.use_sge
         if self.use_sge:
-            sanity_check_sge(self.script_dir)
+            sanity_check_sge(sge_opts, self.script_dir)
 
         # newids track the "active ids" that are allowed to move around diff clusters
         # by contrast, "frozen ids" cannot leave their current cluster and have
@@ -875,7 +877,7 @@ class IceIterative(IceFiles):
         # run this locally
         runner = DalignerRunner(real_upath(self.fasta_filename), self.refConsensusFa, is_FL=True, same_strand_only=True, \
                             query_converted=True, db_converted=True, query_made=True, \
-                            db_made=True, use_sge=False, cpus=4)
+                            db_made=True, use_sge=False, cpus=4, sge_opts=None)
         las_filenames, las_out_filenames = runner.runHPC(min_match_len=self.minLength, output_dir=output_dir, sensitive_mode=self.daligner_sensitive_mode)
 
 # ----- old version using BLASR -----------------------------
@@ -1323,7 +1325,7 @@ class IceIterative(IceFiles):
                 consensusFa=self.tmpConsensusFa,
                 pickleFN=self.tmpPickleFN,
                 max_iter=3,
-                use_blasr=False)
+                use_blasr=True)
             if self.ice_opts.targeted_isoseq:
                 self.run_post_ICE_merging(
                     consensusFa=self.tmpConsensusFa,
@@ -1393,7 +1395,7 @@ class IceIterative(IceFiles):
             # run this locally
             runner = DalignerRunner(u_fasta_filename, u_fasta_filename, is_FL=True, same_strand_only=True, \
                                 query_converted=True, db_converted=True, query_made=True, \
-                                db_made=True, use_sge=False, cpus=4)
+                                db_made=True, use_sge=False, sge_opts=None, cpus=4)
             las_filenames, las_out_filenames = runner.runHPC(min_match_len=self.minLength, output_dir=output_dir, sensitive_mode=self.daligner_sensitive_mode)
 
             for las_out_filename in las_out_filenames:
@@ -1537,7 +1539,7 @@ class IceIterative(IceFiles):
         self.run_post_ICE_merging(consensusFa=self.tmpConsensusFa,
                                   pickleFN=self.tmpPickleFN,
                                   max_iter=3,
-                                  use_blasr=False)
+                                  use_blasr=True)
         # run two extra rounds using BLASR
         if self.ice_opts.targeted_isoseq:
             self.run_post_ICE_merging(consensusFa=self.tmpConsensusFa,

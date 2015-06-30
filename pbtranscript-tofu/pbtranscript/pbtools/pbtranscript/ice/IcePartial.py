@@ -93,7 +93,7 @@ def build_uc_from_partial_daligner(input_fasta, ref_fasta, out_pickle,
     # ice_partial is already being called through qsub, so run everything local!
     runner = DalignerRunner(input_fasta, ref_fasta, is_FL=False, same_strand_only=False, \
                             query_converted=True, db_converted=True, query_made=False, \
-                            db_made=True, use_sge=False, cpus=cpus)
+                            db_made=True, use_sge=False, cpus=cpus, sge_opts=None)
     las_filenames, las_out_filenames = runner.runHPC(min_match_len=300, output_dir=output_dir, sensitive_mode=daligner_sensitive_mode)
 
     if no_qv_or_aln_checking:

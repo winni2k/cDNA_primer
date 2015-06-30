@@ -67,7 +67,7 @@ class IceInit(object):
         # run this locally
         runner = DalignerRunner(queryFa, queryFa, is_FL=True, same_strand_only=True, \
                             query_converted=True, db_converted=True, query_made=True, \
-                            db_made=True, use_sge=False, cpus=4)
+                            db_made=True, use_sge=False, cpus=4, sge_opts=None)
         las_filenames, las_out_filenames = runner.runHPC(min_match_len=300, output_dir=output_dir, sensitive_mode=daligner_sensitive_mode)
         return input_obj, las_out_filenames
 

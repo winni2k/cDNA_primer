@@ -5,7 +5,7 @@ import numpy as np
 
 
 __author__ = "jdrake|etseng|yli@pacificbiosciences.com"
-version = "0.4.1"
+version = "1.0.0'
 
 if 'setuptools.extension' in sys.modules:
     m = sys.modules['setuptools.extension']
