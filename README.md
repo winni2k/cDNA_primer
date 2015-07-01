@@ -1,11 +1,12 @@
 [DevNet](https://github.com/PacificBiosciences/cDNA_primer/wiki) | <a href="mailto:devnet@pacificbiosciences.com">Contact Us</a> | [Terms of Use](http://pacbiodevnet.com/Terms_of_Use.html) | [Trademarks](http://pacb.com/terms-of-use/index.html#trademarks)
 
-Last Updated: 01/20/2015
+Last Updated: 07/01/2015
 
 
 
 ## Latest News
 
+Current ToFU version: v2.0.0 (see [CHANGES](https://github.com/PacificBiosciences/cDNA_primer/wiki/cDNA_primer-tofu-CHANGELOG))
 
 The scripts in this repository are now compatible with SMRTAnalysis 2.3. It is a "beta" version of the RS_IsoSeq protocol that is supported in 2.3, meaning that it extends the existing RS_IsoSeq code base, and is an unofficial, developemental version of RS_IsoSeq. This beta version is only accessible via command line. The command line name of the official RS_IsoSeq is *pbtranscript*, to differentiate from the official version, in the tutorials we will refer to the beta version provided on this site as *pbtranscript-tofu*. 
 
@@ -30,12 +31,7 @@ This code is not part of the official PacBio software package and is developed s
 
 ## About Iso-Seq(TM)
 
-The Iso-Seq (Isoform Sequencing) protocol refers to PacBio’s proprietary methods and applications for transcriptome sequencing. Please refer to the resources below, as well as the wiki for more information:
-
-* [Iso-Seq Webinar](https://s3.amazonaws.com/files.pacb.com/Customer+Webinars/MCF-7+Transcriptome+Iso-Seq+Webinar+01+22+14.wmv) (recorded 1/22/2014)
-* [Iso-Seq Webinar Slides](https://s3.amazonaws.com/files.pacb.com/pdf/Iso-Seq+Bioinformatics+Analysis+of+the+Human+MCF-7+Transcriptome.pdf)
-* [Iso-Seq Webinar Q&A](https://s3.amazonaws.com/files.pacb.com/Customer+Webinars/Iso-Seq+Webinar+Q%26A.pdf)
-
+The Iso-Seq (Isoform Sequencing) protocol refers to PacBio’s proprietary methods and applications for transcriptome sequencing. Please refer to the [wiki](https://github.com/PacificBiosciences/cDNA_primer/wiki) for more information.
 
 ## License
 
@@ -44,7 +40,7 @@ Standard PacBio Open Source License that is associated with this package:
 ```
 
 #################################################################################$$
-# Copyright (c) 2011-2014, Pacific Biosciences of California, Inc.
+# Copyright (c) 2011-2015, Pacific Biosciences of California, Inc.
 #
 # All rights reserved.
 #
