@@ -227,7 +227,7 @@ class DalignerRunner:
 
         # (b) run all LA4Ice jobs
         start_t = time.time()
-        print cmds_show
+        #print cmds_show
         if self.use_sge:
             qsub_job_runner(cmds_show, os.path.join(self.script_dir, "LA4Ice_job_{i}.sh"), done_script, self.sge_opts)
         else:
