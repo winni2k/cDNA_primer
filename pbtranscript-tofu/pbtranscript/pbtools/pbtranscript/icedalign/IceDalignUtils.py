@@ -1,6 +1,7 @@
 __author__ = 'etseng@pacificbiosciences.com'
 
 import os, sys, subprocess, time
+import logging
 from cPickle import *
 from multiprocessing.pool import ThreadPool
 from pbcore.io.FastaIO import FastaReader, FastaWriter
@@ -207,7 +208,7 @@ class DalignerRunner:
 
         assert len(cmds_show) > 0
 
-        print >> sys.stderr, "\n".join(cmds_daligner)
+        logging.info("CMD: " + "\n".join(cmds_daligner) + '\n')
 
         # (a) run all daligner jobs
         start_t = time.time()
@@ -219,10 +220,10 @@ class DalignerRunner:
             qsub_job_runner(cmds_daligner, os.path.join(self.script_dir, "daligner_job_{i}.sh"), done_script, self.sge_opts)
         else:
             local_job_runner(cmds_daligner, num_processes=max(1, min(self.cpus/4, 4))) # max 4 at a time to avoid running out of mem..
-        print >> sys.stderr, "daligner jobs took {0} sec".format(time.time()-start_t)
+        logging.info("daligner jobs took {0} sec.".format(time.time()-start_t))
 
 
-        print >> sys.stderr, "\n".join(cmds_show)
+        #print >> sys.stderr, "\n".join(cmds_show)
 
         # (b) run all LA4Ice jobs
         start_t = time.time()
@@ -231,7 +232,7 @@ class DalignerRunner:
             qsub_job_runner(cmds_show, os.path.join(self.script_dir, "LA4Ice_job_{i}.sh"), done_script, self.sge_opts)
         else:
             local_job_runner(cmds_show, num_processes=max(1, min(self.cpus, 4))) # max 4 at a time to avoid running out of memory...
-        print >> sys.stderr, "LA4Ice jobs took {0} sec".format(time.time()-start_t)
+        #print >> sys.stderr, "LA4Ice jobs took {0} sec".format(time.time()-start_t)
         os.chdir(old_dir)
         return las_filenames, las_out_filenames
 

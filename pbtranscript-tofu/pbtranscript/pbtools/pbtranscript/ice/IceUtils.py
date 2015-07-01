@@ -101,7 +101,6 @@ def sanity_check_sge(sge_opts, scriptDir, testDirName="gcon_test_dir"):
         cmd += " -q " + sge_opts.sge_queue
     cmd += " -sync y -pe {env} 1 -cwd -S /bin/bash -V -e /dev/null -o /dev/null {t}".\
           format(t=real_upath(testSh), env=sge_opts.sge_env_name)
-    print >> sys.stderr, "CMD:", cmd
     logging.info("Submitting cmd: " + cmd)
     _out, _code, _msg = backticks(cmd)
 
