@@ -47,6 +47,7 @@ setup(
              'pbtools/pbtranscript/ice_quiver.py',
              'pbtools/pbtranscript/ice_fa2fq.py',
             'pbtools/pbtranscript/picking_up_ice.py',
+            'pbtools/pbtranscripts/cleanup_ice.py'
         ],
 
 

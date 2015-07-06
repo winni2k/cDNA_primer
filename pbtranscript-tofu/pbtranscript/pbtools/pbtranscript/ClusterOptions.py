@@ -67,12 +67,6 @@ class IceOptions(object):
         #self.nfl_reads_per_split = int(nfl_reads_per_split)
         self.targeted_isoseq = targeted_isoseq
 
-        # (Liz) for targeted iso-seq, set this to a much smaller fragment to deal with the fact
-        # that almost everything is going to be a match!
-        if self.targeted_isoseq:
-            self.flnc_reads_per_split = 2000
-
-
     @classmethod
     def cDNA_sizeBins(cls):
         """Return cDNA size bins."""

@@ -42,16 +42,20 @@ class FastaSplitter(object):
                                               idx=split_index)
         return op.join(self.out_dir, name)
 
-    def split(self):
+    def split(self, first_split=None):
         """Split `input_fasta` into smaller files each containing
         `reads_per_split` reads. Return splitted fasta."""
         split_index = 0
         self.out_fns = []
         writer = FastaWriter(self._out_fn(split_index))
         self.out_fns.append(self._out_fn(split_index))
+
+        if first_split is None:
+            first_split = self.reads_per_split
         with FastaReader(self.input_fasta) as reader:
             for ridx, r in enumerate(reader):
-                if ridx % self.reads_per_split == 0 and ridx != 0:
+                if ((split_index == 0 and ridx == first_split) or (split_index > 0 and ridx % self.reads_per_split == 0)) \
+                    and ridx != 0:
                     split_index += 1
                     writer.close()
                     writer = FastaWriter(self._out_fn(split_index))
@@ -68,7 +72,7 @@ class FastaSplitter(object):
         self.out_fns = []
 
 
-def splitFasta(input_fasta, reads_per_split, out_dir, out_prefix):
+def splitFasta(input_fasta, reads_per_split, out_dir, out_prefix, first_split=None):
     """
     Split input_fasta into small fasta files each containing at most
     reads_per_split reads. All splitted fasta files will be placed under
@@ -77,7 +81,7 @@ def splitFasta(input_fasta, reads_per_split, out_dir, out_prefix):
     obj = FastaSplitter(input_fasta=input_fasta,
                         reads_per_split=reads_per_split,
                         out_dir=out_dir, out_prefix=out_prefix)
-    return obj.split()
+    return obj.split(first_split)
 
 
 def get_args():

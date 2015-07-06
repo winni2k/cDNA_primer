@@ -194,17 +194,26 @@ class Cluster(IceFiles):
         """Call ICE to cluster consensus isoforms."""
         self.add_log("Start to run cluster.", level=logging.INFO)
 
-        #self.ice_opts.flnc_reads_per_split=1000 #FOR DEBUGGING, REMOVE LATER
         # Split flnc_fa into smaller files and save files to _flnc_splitted_fas.
         self.add_log("Splitting {flnc} into ".format(flnc=self.flnc_fa) +
                      "smaller files each containing {n} reads.".format(
                      n=self.ice_opts.flnc_reads_per_split),
                      level=logging.INFO)
+
+        if self.ice_opts.targeted_isoseq:
+            first_split = 2000
+            self.add_log("targeted_isoseq: further splitting JUST first split to 2000.")
+        else:
+            first_split = None
+
         self._flnc_splitted_fas = splitFasta(
             input_fasta=self.flnc_fa,
             reads_per_split=self.ice_opts.flnc_reads_per_split,
             out_dir=self.root_dir,
-            out_prefix="input.split")
+            out_prefix="input.split",
+            first_split=first_split)
+
+
         self.add_log("Splitted files are: " +
                      "\n".join(self._flnc_splitted_fas),
                      level=logging.INFO)
