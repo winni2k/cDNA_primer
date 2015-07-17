@@ -648,11 +648,15 @@ class Classifier(object):
                     if not keep_primer:
                         seq = seq[:polyAPos]
                         e1 = s + polyAPos if strand == "+" else e - polyAPos
+                    else:
+                        e1 = s if strand == '+' else e
                     self.summary.num_polyA_seen += 1
                 elif three_start is not None:  # polyA not found but 3' found
                     if not keep_primer:
                         seq = seq[:three_start]
                         e1 = s + three_start if strand == "+" else e - three_start
+                    else:
+                        e1 = s if strand == '+' else e
                 else: # polyA not found and 3' not found
                     e1 = e if strand == "+" else s
 
@@ -660,6 +664,8 @@ class Classifier(object):
                     if not keep_primer:
                         seq = seq[five_end:]
                         s1 = s + five_end if strand == "+" else e - five_end
+                    else:
+                        s1 = s if strand == '+' else e
                 else:
                     s1 = s if strand == "+" else e
 

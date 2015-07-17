@@ -46,7 +46,7 @@ class ReadAnnotation(object):
         """Construct and return a ReadAnnotation object."""
         try:
             sid, desc = line.strip().split(' ')[0:2]
-            ret = ReadAnnotation(sid, ignore_polyA=ignore_polyA)
+            ret = cls(sid, ignore_polyA=ignore_polyA)
             for d in desc.split(';'):
                 attr, val = d.split('=')
                 if hasNonPropertyAttr(ret, attr):

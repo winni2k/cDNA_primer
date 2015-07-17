@@ -161,7 +161,6 @@ class PBTranscript(PBMultiToolRunner):
                                            outFN=self.args.outFN,
                                            rules=rules,
                                            ignore_polyA=self.args.ignore_polyA,
-                                           keep_primer=self.args.keep_primer,
                                            printReadLengthOnly=self.args.printReadLengthOnly)
                 obj.run()
             else:

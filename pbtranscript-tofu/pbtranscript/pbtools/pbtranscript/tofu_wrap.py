@@ -11,6 +11,7 @@ from pbtools.pbtranscript.ice.IceUtils import convert_fofn_to_fasta
 from pbtools.pbtranscript.counting import get_read_count_from_collapsed as sp
 from bisect import bisect_right
 from collections import defaultdict
+from pbtools.pbtranscript.__init__ import get_version
 
 def sep_flnc_by_primer(flnc_filename, root_dir, output_filename='isoseq_flnc.fasta'):
     """
@@ -197,7 +198,7 @@ def get_abundance(collapse_prefix, prefix_dict, output_prefix, restricted_movies
     print >> sys.stderr, "Abundance file written to", output_prefix + '.abundance.txt'
 
 def tofu_wrap_main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(prog='tofu_wrap')
     add_cluster_arguments(parser, show_sge_env_name=True, show_sge_queue=True)
 
     parser.add_argument("--bin_size_kb", default=1, type=int, help="Bin size by kb (default: 1)")
@@ -208,8 +209,13 @@ def tofu_wrap_main():
     parser.add_argument("--gmap_db", default="/home/UNIXHOME/etseng/share/gmap_db_new/", help="GMAP DB location (default: /home/UNIXHOME/etseng/share/gmap_db_new/)")
     parser.add_argument("--output_seqid_prefix", type=str, default=None, help="Output seqid prefix. If not given, a random ID is generated")
     parser.add_argument("--mem_debug", default=False, action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--version", action='version', version='%(prog)s ' + str(get_version()))
     args = parser.parse_args()
 
+    # PRINT VERSION AND EXIT
+    if args.version:
+        print >> sys.stderr, get_version()
+        sys.exit(0)
     # DEBUG
     if args.mem_debug:
         from memory_profiler import memory_usage

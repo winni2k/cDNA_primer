@@ -1,5 +1,5 @@
 """Sub set input Fasta file."""
-import logging
+import logging, sys
 from pbcore.io import FastaReader, FastaWriter
 from pbtools.pbtranscript.io.ReadAnnotation import ReadAnnotation
 from collections import namedtuple
@@ -50,6 +50,7 @@ class ReadsSubsetExtractor(object):
             with FastaReader(self.inFN) as reader, \
                     FastaWriter(self.outFN) as writer:
                 for r in reader:
+                    #print >> sys.stderr, r.name, self.ignore_polyA
                     annotation = ReadAnnotation.fromString(r.name,
                                                            self.ignore_polyA)
                     if self.satisfy(annotation, self.rules):
