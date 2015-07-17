@@ -416,8 +416,10 @@ class IceIterative(IceFiles):
             self.ice_opts.cDNA_size = "between1k2k"
         elif _low <= 3000:
             self.ice_opts.cDNA_size = "between2k3k"
+        elif _low <= 5000:
+            self.ice_opts.cDNA_size = "3to5k"
         else:
-            self.ice_opts.cDNA_size = "above3k"
+            self.ice_opts.cDNA_size = "above5k"
 
         self.maxScore = self.ice_opts.maxScore
         self.minLength = self.ice_opts.minLength
@@ -848,7 +850,7 @@ class IceIterative(IceFiles):
                 for qid in set(qids).difference(self.newids):
                     self.d[qid] = {cid: -0}
 
-    def calc_cluster_prob(self, force_calc=False):
+    def calc_cluster_prob(self, force_calc=False, use_blasr=False):
         """
         Dump all consensus file to ref_consensus.fa
         --> run DALIGNER (used to be BLASR) and get probs
@@ -878,42 +880,45 @@ class IceIterative(IceFiles):
         runner = DalignerRunner(real_upath(self.fasta_filename), self.refConsensusFa, is_FL=True, same_strand_only=True, \
                             query_converted=True, db_converted=True, query_made=True, \
                             db_made=True, use_sge=False, cpus=4, sge_opts=None)
-        las_filenames, las_out_filenames = runner.runHPC(min_match_len=self.minLength, output_dir=output_dir, sensitive_mode=self.daligner_sensitive_mode)
 
+        try:
+            las_filenames, las_out_filenames = runner.runHPC(min_match_len=self.minLength, output_dir=output_dir, sensitive_mode=self.daligner_sensitive_mode)
+        except:
+            use_blasr = True
+            self.add_log("ERROR! Daligner failed. Switching to blasr. Report bug.")
 # ----- old version using BLASR -----------------------------
-#        saFN = f.name + ".sa"
-#        cmd = "sawriter {sa} {fa} -blt 8 -welter".\
-#            format(sa=real_upath(saFN), fa=real_upath(f.name))
-#        self.add_log("Creating a suffix array for ref_consensus.fa.",
-#                     level=logging.INFO)
-#        description = "Failed to create suffix array."
-#
-#        time_1 = datetime.now()
-#        self.run_cmd_and_log(cmd=cmd, description=description)
-#        time_2 = datetime.now()
-#        msg = "Total time for creating a saffix array for " + \
-#              "ref_consensus is {t}".format(t=time_2 - time_1)
-#        self.add_log(msg, level=logging.INFO)
-#        blasrFN = f.name + ".blasr"
-#        if op.exists(blasrFN):
-#            os.remove(blasrFN)
-#
-#         cmd = "blasr {qfa} ".format(qfa=real_upath(self.fasta_filename)) + \
-#               "{tfa} ".format(tfa=real_upath(f.name)) + \
-#               "-m 5 -bestn 50 -nCandidates 50 -maxLCPLength 15 " + \
-#               "-nproc {n} ".format(n=self.blasr_nproc) + \
-#               "-maxScore {s} ".format(s=self.maxScore) + \
-#               "-sa {sa} -out {o}".format(sa=real_upath(saFN),
-#                                          o=real_upath(blasrFN))
-#         msg = "Calling blasr to align input fasta file to ref_consensus"
-#         self.add_log(msg, level=logging.INFO)
-#
-#        time_3 = datetime.now()
-#        self.run_cmd_and_log(cmd)
-#        time_4 = datetime.now()
-#        msg = "Total time for aligning input fasta to ref_consensus is {t}".\
-#              format(t=time_4 - time_3)
-#        self.add_log(msg, level=logging.INFO)
+            saFN = self.refConsensusFa + ".sa"
+            cmd = "sawriter {sa} {fa} -blt 8 -welter".\
+               format(sa=real_upath(saFN), fa=real_upath(self.refConsensusFa))
+            self.add_log("Creating a suffix array for ref_consensus.fa", level=logging.INFO)
+            description = "Failed to create suffix array."
+
+            time_1 = datetime.now()
+            self.run_cmd_and_log(cmd=cmd, description=description)
+            time_2 = datetime.now()
+            msg = "Total time for creating a saffix array for " + \
+                 "ref_consensus is {t}".format(t=time_2 - time_1)
+            self.add_log(msg, level=logging.INFO)
+            blasrFN = self.refConsensusFa + ".blasr"
+            if op.exists(blasrFN):
+                os.remove(blasrFN)
+
+            cmd = "blasr {qfa} ".format(qfa=real_upath(self.fasta_filename)) + \
+                  "{tfa} ".format(tfa=real_upath(self.refConsensusFa)) + \
+                  "-m 5 -bestn 100 -nCandidates 200 -maxLCPLength 15 " + \
+                  "-nproc {n} ".format(n=self.blasr_nproc) + \
+                  "-maxScore {s} ".format(s=self.maxScore) + \
+                  "-sa {sa} -out {o}".format(sa=real_upath(saFN),
+                                             o=real_upath(blasrFN))
+            msg = "Calling blasr to align input fasta file to ref_consensus"
+            self.add_log(msg, level=logging.INFO)
+
+            time_3 = datetime.now()
+            self.run_cmd_and_log(cmd)
+            time_4 = datetime.now()
+            msg = "Total time for aligning input fasta to ref_consensus is {t}".\
+                 format(t=time_4 - time_3)
+            self.add_log(msg, level=logging.INFO)
 # ----- old version using BLASR -----------------------------
 
         time_5 = datetime.now()
@@ -924,17 +929,20 @@ class IceIterative(IceFiles):
         self.add_log(msg, level=logging.INFO)
 
         time_7 = datetime.now()
-        #self.g(blasrFN) # replaced by g2
-        self.g2(query_obj, ref_obj, las_out_filenames)
+        if use_blasr:
+            self.g(blasrFN) # replaced by g2
+        else:
+            self.g2(query_obj, ref_obj, las_out_filenames)
         time_8 = datetime.now()
-        msg = "Total time for calling g2 is {t}".format(t=time_8 - time_7)
+        msg = "Total time for calling g/g2 is {t}".format(t=time_8 - time_7)
         self.add_log(msg, level=logging.INFO)
 
-        # remove used .las and .las.out
-        for file in las_filenames:
-            os.remove(file)
-        for file in las_out_filenames:
-            os.remove(file)
+        if not use_blasr:
+            # remove used .las and .las.out
+            for file in las_filenames:
+                os.remove(file)
+            for file in las_out_filenames:
+                os.remove(file)
 
     def g2(self, query_obj, ref_obj, las_out_filenames):
         """
@@ -1325,7 +1333,7 @@ class IceIterative(IceFiles):
                 consensusFa=self.tmpConsensusFa,
                 pickleFN=self.tmpPickleFN,
                 max_iter=3,
-                use_blasr=True)
+                use_blasr=False)
             if self.ice_opts.targeted_isoseq:
                 self.run_post_ICE_merging(
                     consensusFa=self.tmpConsensusFa,
@@ -1361,7 +1369,7 @@ class IceIterative(IceFiles):
             self.write_pickle(pickle_filename)
             
             self.add_log("Writing consensus file: " + consensus_filename)
-            self.write_consensus(consensus_filename)
+            self.write_consensus(consensus_filename, sa_filename=consensus_filename+'.sa' if use_blasr else None)
 
             iters = self.find_mergeable_consensus(consensus_filename, use_blasr=use_blasr)
 
@@ -1412,8 +1420,8 @@ class IceIterative(IceFiles):
             out = self.selfBlasrFN(fasta_filename)
             if op.exists(out):  # clean out the blasr file from the last run
                 os.remove(out)
-            cmd = "blasr {i} {i} ".format(i=real_upath(fasta_filename)) + \
-                  "-bestn 50 -nCandidates 200 -minPctIdentity 90 -maxLCPLength 15 -m 5 " + \
+            cmd = "blasr {i} {i} -sa {i}.sa ".format(i=real_upath(fasta_filename)) + \
+                  "-bestn 20 -nCandidates 100 -minPctIdentity 90 -maxLCPLength 15 -m 5 " + \
                   "-maxScore {s} ".format(s=self.maxScore) + \
                   "-nproc {cpu} -out {o}".format(cpu=self.blasr_nproc,
                                                  o=real_upath(out))
@@ -1540,7 +1548,7 @@ class IceIterative(IceFiles):
                                   pickleFN=self.tmpPickleFN,
                                   max_iter=3,
                                   use_blasr=True)
-        # run two extra rounds using BLASR
+        # run extra rounds using BLASR
         if self.ice_opts.targeted_isoseq:
             self.run_post_ICE_merging(consensusFa=self.tmpConsensusFa,
                                   pickleFN=self.tmpPickleFN,

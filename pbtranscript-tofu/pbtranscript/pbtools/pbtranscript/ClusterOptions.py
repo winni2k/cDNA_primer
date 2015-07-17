@@ -70,7 +70,7 @@ class IceOptions(object):
     @classmethod
     def cDNA_sizeBins(cls):
         """Return cDNA size bins."""
-        return ("under1k", "between1k2k", "between2k3k", "above3k")
+        return ("under1k", "between1k2k", "between2k3k", "3to5k", "above5k")
 
     @property
     def maxScore(self):
@@ -79,7 +79,7 @@ class IceOptions(object):
             raise ValueError("Invalid cDNA size: {cs}".
                              format(cs=self.cDNA_size))
         d = {"under1k": -1000, "between1k2k": -2000, "between2k3k": -3000,
-             "above3k": -5000}
+             "3to5k": -5000, "above5k": -8000}
         return d[self.cDNA_size]
 
     @property
@@ -91,7 +91,7 @@ class IceOptions(object):
             raise ValueError("Invalid cDNA size: {cs}".
                              format(cs=self.cDNA_size))
         d = {"under1k": 300, "between1k2k": 800, "between2k3k": 1500,
-             "above3k": 2500}
+             "3to5k": 2500, "above5k": 3500}
         return d[self.cDNA_size]
 
     def __str__(self):

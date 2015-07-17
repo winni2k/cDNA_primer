@@ -127,7 +127,7 @@ def set_daligner_sensitivity_setting(fasta_filename):
     _low, _high = np.percentile(lens, [25, 75])
     _low  = int(_low)
     _high = int(_high)
-    if _low >= 3000:
+    if _low >= 6000:
         with open(fasta_filename+'.sensitive.config', 'w') as f:
             f.write("sensitive=True\n")
             f.write("low={0}\nhigh={1}\n".format(_low, _high))

@@ -96,13 +96,14 @@ class Classifier(object):
                  cpus=1, change_read_id=True,
                  opts=ChimeraDetectionOptions(50, 10, 100, 50, 100, False),
                  out_nfl_fn=None, out_flnc_fn=None,
-                 ignore_polyA=False, reuse_dom=False):
+                 ignore_polyA=False, keep_primer=False, reuse_dom=False):
         self.reads_fn = realpath(reads_fn)
         self.out_dir = realpath(out_dir)
         self.cpus = cpus
         self.change_read_id = change_read_id
         self.chimera_detection_opts = opts
         self.ignore_polyA = ignore_polyA
+        self.keep_primer = keep_primer # if True, primers are not removed (useful for targeted)
         self.reuse_dom = reuse_dom
 
         # The input primer file: primers.fa
@@ -566,7 +567,7 @@ class Classifier(object):
                      primer_report_nfl_fn,
                      best_of_front, best_of_back, primer_indices,
                      min_seq_len, min_score, change_read_id,
-                     ignore_polyA):
+                     ignore_polyA, keep_primer):
         """Trim bar code from reads in 'reads_fn', annotate each read,
         indicating:
             whether its 5' primer, 3' primer and polyA tail are seen,
@@ -643,19 +644,22 @@ class Classifier(object):
                 s, e = pbread.start, pbread.end
                 # Try to find polyA tail in read
                 polyAPos = self._findPolyA(seq, three_start=three_start)
-                if polyAPos >= 0:  # polyA found
-                    seq = seq[:polyAPos]
-                    e1 = s + polyAPos if strand == "+" else e - polyAPos
+                if polyAPos >= 0 and not ignore_polyA:  # polyA found and not to ignore it
+                    if not keep_primer:
+                        seq = seq[:polyAPos]
+                        e1 = s + polyAPos if strand == "+" else e - polyAPos
                     self.summary.num_polyA_seen += 1
-                elif three_start is not None:  # polyA not found
-                    seq = seq[:three_start]
-                    e1 = s + three_start if strand == "+" else e - three_start
-                else:
+                elif three_start is not None:  # polyA not found but 3' found
+                    if not keep_primer:
+                        seq = seq[:three_start]
+                        e1 = s + three_start if strand == "+" else e - three_start
+                else: # polyA not found and 3' not found
                     e1 = e if strand == "+" else s
 
                 if five_end is not None:
-                    seq = seq[five_end:]
-                    s1 = s + five_end if strand == "+" else e - five_end
+                    if not keep_primer:
+                        seq = seq[five_end:]
+                        s1 = s + five_end if strand == "+" else e - five_end
                 else:
                     s1 = s if strand == "+" else e
 
@@ -777,7 +781,8 @@ class Classifier(object):
                           min_seq_len=self.chimera_detection_opts.min_seq_len,
                           min_score=self.chimera_detection_opts.min_score,
                           change_read_id=self.change_read_id,
-                          ignore_polyA=self.ignore_polyA)
+                          ignore_polyA=self.ignore_polyA,
+                          keep_primer=self.keep_primer)
 
         # Clean intemediate files: chunked reads files and chunked dom files.
         self._cleanup(self.chunked_front_back_reads_fns)

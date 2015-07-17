@@ -113,6 +113,7 @@ class PBTranscript(PBMultiToolRunner):
                                  out_flnc_fn=self.args.flnc_fa,
                                  out_nfl_fn=self.args.nfl_fa,
                                  ignore_polyA=self.args.ignore_polyA,
+                                 keep_primer=self.args.keep_primer,
                                  reuse_dom=self.args.reuse_dom)
                 obj.run()
             elif cmd == 'cluster':
@@ -160,6 +161,7 @@ class PBTranscript(PBMultiToolRunner):
                                            outFN=self.args.outFN,
                                            rules=rules,
                                            ignore_polyA=self.args.ignore_polyA,
+                                           keep_primer=self.args.keep_primer,
                                            printReadLengthOnly=self.args.printReadLengthOnly)
                 obj.run()
             else:

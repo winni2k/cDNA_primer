@@ -19,8 +19,10 @@ def cleanup_ice(root_dir, delete_tmp_dir=False, delete_quiver_dir=False):
     files += glob.glob(os.path.join(root_dir, 'ref_consensus*'))
     files += glob.glob(os.path.join(root_dir, 'tmp.orphan.*'))
     files += glob.glob(os.path.join(root_dir, 'current.fasta.*'))
+    files += glob.glob(os.path.join(root_dir, '*dazz*'))
     files += glob.glob(os.path.join(root_dir, 'output', 'input.split*'))
     files += glob.glob(os.path.join(root_dir, 'output', 'tmp.consensus.*'))
+    files = list(set(files))
     del_files(files)
 
     nfl_pickle = os.path.join(root_dir, 'output', 'map_noFL', 'nfl.all.partial_uc.pickle')
@@ -28,6 +30,8 @@ def cleanup_ice(root_dir, delete_tmp_dir=False, delete_quiver_dir=False):
         raise Exception, "{0} does not exist. Partial probably not finished!".format(nfl_pickle)
 
     files = glob.glob(os.path.join(root_dir, 'output', 'map_noFL', 'input.split*'))
+    files += glob.glob(os.path.join(root_dir, 'output', 'map_noFL', '*dazz*'))
+    files = list(set(files))
     del_files(files)
 
     if delete_tmp_dir:

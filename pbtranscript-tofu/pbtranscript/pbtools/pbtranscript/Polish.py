@@ -197,7 +197,7 @@ def add_ice_polish_arguments(parser):
     parser = add_nfl_fa_argument(parser, positional=True)
     parser = add_fofn_arguments(parser, ccs_fofn=True, bas_fofn=True, fasta_fofn=True)
     parser = add_ice_post_quiver_hq_lq_arguments(parser)
-    parser = add_sge_arguments(parser, quiver_nproc=True, blasr_nproc=True)
+    parser = add_sge_arguments(parser, quiver_nproc=True, blasr_nproc=True, sge_env_name=True, sge_queue=True)
     return parser
 
 
@@ -228,7 +228,9 @@ class PolishRunner(PBToolRunner):
                               use_sge=args.use_sge,
                               max_sge_jobs=args.max_sge_jobs,
                               quiver_nproc=args.quiver_nproc,
-                              blasr_nproc=args.blasr_nproc)
+                              blasr_nproc=args.blasr_nproc,
+                              sge_env_name=args.sge_env_name,
+                              sge_queue=args.sge_queue)
         ipq_opts = IceQuiverHQLQOptions(
             hq_isoforms_fa=args.hq_isoforms_fa,
             hq_isoforms_fq=args.hq_isoforms_fq,

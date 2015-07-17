@@ -14,8 +14,7 @@ import numpy as np
 from pbcore.util.Process import backticks
 from pbtools.pbtranscript.Utils import real_upath
 import pbtools.pbtranscript.ice.pClique as pClique
-#from pbtools.pbtranscript.ice.IceUtils import blasr_against_ref  # replacing this with dalign_against_ref
-from pbtools.pbtranscript.ice.IceUtils import get_daligner_sensitivity_setting
+from pbtools.pbtranscript.ice.IceUtils import blasr_against_ref, get_daligner_sensitivity_setting
 from pbtools.pbtranscript.icedalign.IceDalignUtils import DazzIDHandler, DalignerRunner
 from pbtools.pbtranscript.icedalign.IceDalignReader import dalign_against_ref
 
@@ -35,27 +34,27 @@ class IceInit(object):
             qver_get_func=qver_get_func,
             ice_opts=ice_opts, sge_opts=sge_opts, qvmean_get_func=qvmean_get_func)
 
-    # OBSOLETE version using BLASR
-    # def d(self, queryFa, targetFa, outFN, ice_opts, sge_opts):
-    #     """Align input reads against itself using BLASR."""
-    #     if os.path.exists(outFN):
-    #         logging.info("{0} already exists. No need to run BLASR.".
-    #             format(outFN))
-    #     else:
-    #         cmd = "blasr {q} ".format(q=real_upath(queryFa)) + \
-    #               "{t} ".format(t=real_upath(targetFa)) + \
-    #               "-m 5 -maxLCPLength 15 " + \
-    #               "-nproc {cpu} ".format(cpu=sge_opts.blasr_nproc) + \
-    #               "-maxScore {score} ".format(score=ice_opts.maxScore) + \
-    #               "-bestn {n} -nCandidates {n} ".format(n=ice_opts.bestn) + \
-    #               "-out {o}".format(o=real_upath(outFN))
-    #         logging.info("Calling {cmd}".format(cmd=cmd))
-    #         _output, code, msg = backticks(cmd)
-    #         if code != 0:
-    #             errMsg = "{cmd} exited with {code}: {msg}".\
-    #                     format(cmd=cmd, code=code, msg=msg)
-    #             logging.error(errMsg)
-    #             raise RuntimeError (errMsg)
+    # version using BLASR; fallback if daligner fails
+    def _align_withBLASR(self, queryFa, targetFa, outFN, ice_opts, sge_opts):
+        """Align input reads against itself using BLASR."""
+        if os.path.exists(outFN):
+            logging.info("{0} already exists. No need to run BLASR.".
+                format(outFN))
+        else:
+            cmd = "blasr {q} ".format(q=real_upath(queryFa)) + \
+                  "{t} ".format(t=real_upath(targetFa)) + \
+                  "-m 5 -maxLCPLength 15 " + \
+                  "-nproc {cpu} ".format(cpu=sge_opts.blasr_nproc) + \
+                  "-maxScore {score} ".format(score=ice_opts.maxScore) + \
+                  "-bestn {n} -nCandidates {n} ".format(n=ice_opts.bestn) + \
+                  "-out {o}".format(o=real_upath(outFN))
+            logging.info("Calling {cmd}".format(cmd=cmd))
+            _output, code, msg = backticks(cmd)
+            if code != 0:
+                errMsg = "{cmd} exited with {code}: {msg}".\
+                        format(cmd=cmd, code=code, msg=msg)
+                logging.error(errMsg)
+                raise RuntimeError (errMsg)
 
     def _align(self, queryFa, output_dir, ice_opts, sge_opts):
 
@@ -68,27 +67,28 @@ class IceInit(object):
         runner = DalignerRunner(queryFa, queryFa, is_FL=True, same_strand_only=True, \
                             query_converted=True, db_converted=True, query_made=True, \
                             db_made=True, use_sge=False, cpus=4, sge_opts=None)
-        las_filenames, las_out_filenames = runner.runHPC(min_match_len=300, output_dir=output_dir, sensitive_mode=daligner_sensitive_mode)
+        las_filenames, las_out_filenames = runner.runHPC(min_match_len=_low, output_dir=output_dir, sensitive_mode=daligner_sensitive_mode)
         return input_obj, las_out_filenames
 
 
-    # OBSOLETE version using BLASR
-    # def _makeGraphFromM5(self, m5FN, qver_get_func, ice_opts):
-    #     """Construct a graph from a BLASR M5 file."""
-    #     alignGraph = nx.Graph()
-    #
-    #     for r in blasr_against_ref(output_filename=m5FN,
-    #         is_FL=True,
-    #         sID_starts_with_c=False,
-    #         qver_get_func=qver_get_func,
-    #         ece_penalty=ice_opts.ece_penalty,
-    #         ece_min_len=ice_opts.ece_min_len):
-    #         if r.qID == r.cID:
-    #             continue # self hit, ignore
-    #         if r.ece_arr is not None:
-    #             logging.debug("adding edge {0},{1}".format(r.qID, r.cID))
-    #             alignGraph.add_edge(r.qID, r.cID)
-    #     return alignGraph
+    # version using BLASR
+    def _makeGraphFromM5(self, m5FN, qver_get_func, qvmean_get_func, ice_opts):
+        """Construct a graph from a BLASR M5 file."""
+        alignGraph = nx.Graph()
+
+        for r in blasr_against_ref(output_filename=m5FN,
+            is_FL=True,
+            sID_starts_with_c=False,
+            qver_get_func=qver_get_func,
+            qvmean_get_func=qvmean_get_func,
+            ece_penalty=ice_opts.ece_penalty,
+            ece_min_len=ice_opts.ece_min_len):
+            if r.qID == r.cID:
+                continue # self hit, ignore
+            if r.ece_arr is not None:
+                logging.debug("adding edge {0},{1}".format(r.qID, r.cID))
+                alignGraph.add_edge(r.qID, r.cID)
+        return alignGraph
 
     def _makeGraphFromLasOut(self, las_out_filenames, dazz_obj, qver_get_func, ice_opts, qvmean_get_func=None):
         alignGraph = nx.Graph()
@@ -184,10 +184,14 @@ class IceInit(object):
         """
         output_dir = os.path.dirname(readsFa)
 
-        dazz_obj, las_out_filenames = self._align(queryFa=readsFa, output_dir=output_dir,
-            ice_opts=ice_opts, sge_opts=sge_opts)
-
-        alignGraph = self._makeGraphFromLasOut(las_out_filenames, dazz_obj, qver_get_func, ice_opts, qvmean_get_func=qvmean_get_func)
+        try:
+            dazz_obj, las_out_filenames = self._align(queryFa=readsFa, output_dir=output_dir,
+                ice_opts=ice_opts, sge_opts=sge_opts)
+            alignGraph = self._makeGraphFromLasOut(las_out_filenames, dazz_obj, qver_get_func, ice_opts, qvmean_get_func=qvmean_get_func)
+        except: # daligner probably crashed, fall back to blasr
+            outFN = readsFa + '.self.blasr'
+            self._align_withBLASR(queryFa=readsFa, targetFa=readsFa, outFN=outFN, ice_opts=ice_opts, sge_opts=sge_opts)
+            alignGraph = self._makeGraphFromM5(outFN, qver_get_func, qvmean_get_func, ice_opts)
 
         uc = self._findCliques(alignGraph=alignGraph, readsFa=readsFa)
         return uc

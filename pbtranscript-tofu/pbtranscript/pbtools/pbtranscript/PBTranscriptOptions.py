@@ -132,6 +132,13 @@ def add_classify_arguments(parser):
                             action="store_true",
                             help=helpstr)
 
+    helpstr = "Keep primer even if detected (default: turned off)"
+    read_group.add_argument("--keep_primer",
+                        dest="keep_primer",
+                        default=False,
+                        action="store_true",
+                        help=helpstr)
+
     helpstr = "Reuse previously built dom files by phmmer"
     parser.add_argument("--reuse_dom",
                         dest="reuse_dom",
@@ -500,6 +507,14 @@ def add_subset_arguments(parser):
                         default=False,
                         action="store_true",
                         help=helpstr)
+
+    # helpstr = "Keep primer even if detected (default: turned off)"
+    # parser.add_argument("--keep_primer",
+    #                     dest="keep_primer",
+    #                     default=False,
+    #                     action="store_true",
+    #                     help=helpstr)
+
 
 # import sys
 # if __name__ == "__main__":
