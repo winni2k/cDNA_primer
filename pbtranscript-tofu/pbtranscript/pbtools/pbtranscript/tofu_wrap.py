@@ -213,9 +213,9 @@ def tofu_wrap_main():
     args = parser.parse_args()
 
     # PRINT VERSION AND EXIT
-    if args.version:
-        print >> sys.stderr, get_version()
-        sys.exit(0)
+#    if args.version:
+#        print >> sys.stderr, get_version()
+#        sys.exit(0)
     # DEBUG
     if args.mem_debug:
         from memory_profiler import memory_usage

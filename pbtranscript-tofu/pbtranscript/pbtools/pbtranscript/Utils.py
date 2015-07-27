@@ -28,7 +28,8 @@ def check_ids_unique(fa_or_fq_filename, is_fq=False):
 def revcmp(seq):
     """Given a sequence return its reverse complement sequence."""
     NTMAP = {'a': 't', 'c': 'g', 't': 'a', 'g': 'c',
-             'A': 'T', 'C': 'G', 'T': 'A', 'G': 'C'}
+             'A': 'T', 'C': 'G', 'T': 'A', 'G': 'C',
+             '*': '*', 'n': 'n', 'N': 'N'}
     return "".join([NTMAP[x] for x in seq])[::-1]
 
 
