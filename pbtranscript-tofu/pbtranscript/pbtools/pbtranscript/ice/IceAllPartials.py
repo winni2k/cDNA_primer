@@ -59,6 +59,8 @@ class IceAllPartials(IceFiles):
         self.prog_name = "IceAllPartials"
         IceFiles.__init__(self, prog_name=self.prog_name, root_dir=root_dir)
 
+        self.add_log("DEBUG: in IceAllPartials, ccs_fofn is {0}.".format(ccs_fofn), level=logging.INFO)
+
         self.fasta_filenames, self.ref_fasta, self.ccs_fofn, self.sa_file = \
             self._validate_inputs(fasta_filenames=fasta_filenames,
                                   ref_fasta=ref_fasta,

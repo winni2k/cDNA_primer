@@ -52,8 +52,6 @@ class Cluster(IceFiles):
         self.flnc_fa, self.nfl_fa, self.ccs_fofn, self.fasta_fofn = self._validate_inputs(
             flnc_fa, nfl_fa, ccs_fofn, fasta_fofn=fasta_fofn, quiver=self.ice_opts.quiver)
 
-        self.add_log("DEBUG: self.fasta_fofn is {0}".format(self.fasta_fofn))
-
         self.root_dir, self.out_fa = self._validate_outputs(
             root_dir, out_fa)
 
@@ -256,6 +254,9 @@ class Cluster(IceFiles):
         # Run IceIterative.
         self.add_log("Iterative clustering: initializing IceIterative.",
                      level=logging.INFO)
+        #self.add_log("In Cluster. DEBUG: Calling Cluster with {0} {1} {2} ".format(self.bas_fofn, self.ccs_fofn, self.fasta_fofn))
+
+
         self.icec = IceIterative(
             fasta_filename=firstSplit,
             fasta_filenames_to_add=self._flnc_splitted_fas[1:],
@@ -277,6 +278,9 @@ class Cluster(IceFiles):
         self.add_log("Creating a link to unpolished consensus isoforms.")
         ln(self.icec.final_consensus_fa, self.out_fa)
 
+        #self.add_log("In Cluster. DEBUG: End Cluster with {0} {1} {2} ".format(self.bas_fofn, self.ccs_fofn, self.fasta_fofn))
+
+
         # Call quiver to polish predicted consensus isoforms.
         if self.ice_opts.quiver is not True:
             self.add_log("Creating a link to cluster report.",
@@ -289,6 +293,7 @@ class Cluster(IceFiles):
         else:  # self.ice_opts.quiver is True
             self.add_log("Polishing clusters: initializing IcePolish.",
                          level=logging.INFO)
+            #self.add_log("In Cluster. DEBUG: Calling Polish with {0} {1} {2} ".format(self.bas_fofn, self.ccs_fofn, self.fasta_fofn))
             self.pol = Polish(root_dir=self.root_dir,
                               nfl_fa=self.nfl_fa,
                               bas_fofn=self.bas_fofn,

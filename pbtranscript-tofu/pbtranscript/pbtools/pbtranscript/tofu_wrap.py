@@ -3,6 +3,7 @@ import os, sys, argparse, subprocess, binascii, time
 from cPickle import *
 from pbcore.io.FastaIO import FastaReader
 from pbcore.io.FastqIO import FastqReader, FastqWriter
+from pbtools.pbtranscript.Utils import realpath
 from pbtools.pbtranscript.Cluster import Cluster
 from pbtools.pbtranscript.ClusterOptions import IceOptions, SgeOptions, \
             IceQuiverHQLQOptions
@@ -22,10 +23,13 @@ def sep_flnc_by_primer(flnc_filename, root_dir, output_filename='isoseq_flnc.fas
         for x in r.name.split(';'):
             if x.startswith('primer='):
                 return x.split('=')[1]
+        return None
 
     primers = set()
     for r in FastaReader(flnc_filename):
         p = get_primer(r)
+        if p is None:
+            raise Exception, "ERROR: Unable to find primer information from sequence ID for {0}! Abort!".format(r.name)
         primers.add(p)
 
     handles = {}
@@ -297,7 +301,7 @@ def tofu_wrap_main():
     # (3) run ICE/Quiver (the whole thing), providing the fasta_fofn
     split_dirs = []
     for cur_file in split_files:
-        cur_dir = os.path.dirname(cur_file)
+        cur_dir = os.path.abspath(os.path.dirname(cur_file))
         split_dirs.append(cur_dir)
         cur_out_cons = os.path.join(cur_dir, args.consensusFa)
         
@@ -307,12 +311,13 @@ def tofu_wrap_main():
             continue
         print >> sys.stderr, "running ICE/Quiver on", cur_dir
         start_t = time.time()
+
         obj = Cluster(root_dir=cur_dir,
                 flnc_fa=cur_file,
                 nfl_fa=args.nfl_fa,
-                bas_fofn=args.bas_fofn,
-                ccs_fofn=args.ccs_fofn,
-                fasta_fofn=args.fasta_fofn,
+                bas_fofn=realpath(args.bas_fofn),
+                ccs_fofn=realpath(args.ccs_fofn),
+                fasta_fofn=realpath(args.fasta_fofn),
                 out_fa=cur_out_cons,
                 sge_opts=sge_opts,
                 ice_opts=ice_opts,

@@ -130,7 +130,7 @@ from pbtools.pbtranscript.PBTranscriptOptions import \
 from pbtools.pbtranscript.Utils import phred_to_qv, \
     get_all_files_in_dir, ln, nfs_exists
 from pbtools.pbtranscript.ice.IceFiles import IceFiles
-from pbtools.pbtranscript.ice.IceUtils import cid_with_annotation
+from pbtools.pbtranscript.ice.IceUtils import cid_with_annotation, locally_run_failed_quiver_jobs
 from pbcore.io import FastaWriter, FastqReader, FastqWriter
 
 
@@ -266,10 +266,15 @@ class IceQuiverPostprocess(IceFiles):
             if len(bad_sh) == 0:
                 return "RUNNING"
             else:
-                self.add_log("The following jobs were completed but " +
+                self.add_log("Some Quiver jobs failed. Attempt to rerun locally.\n")
+                still_bad_sh = locally_run_failed_quiver_jobs(bad_sh)
+                if len(still_bad_sh) > 0:
+                    self.add_log("The following jobs were completed but " +
                              "no output file. Please check and resubmit: " +
-                             "\n{0}\n".format('\n'.join(bad_sh)))
-                return "FAILED"
+                             "\n{0}\n".format('\n'.join(still_bad_sh)))
+                    return "FAILED"
+                else:
+                    return "DONE"
         else:
             return "DONE"
 

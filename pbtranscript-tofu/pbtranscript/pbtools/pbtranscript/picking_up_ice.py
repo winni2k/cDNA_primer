@@ -15,6 +15,9 @@ def ensure_pickle_goodness(pickle_filename, root_dir, fasta_files_to_add=None):
     a = load(open(pickle_filename))
     if a['fasta_filename'] != os.path.abspath(os.path.join(root_dir,'current.fasta')):
         raise Exception, "The pickle file {0} indicates that current.fasta is not being used. ICE likely did not finish to a point that could be picked up.".format(pickle_filename)
+
+    a['newids'] = check_n_fix_newids(a)
+
     if fasta_files_to_add is not None:
         for file in fasta_files_to_add.split(','):
             if not os.path.exists(file):
@@ -32,13 +35,33 @@ def ensure_pickle_goodness(pickle_filename, root_dir, fasta_files_to_add=None):
         print >> sys.stderr, "Fixed pickle written to {0}.fixed".format(pickle_filename)
         return a, pickle_filename + '.fixed'
     else:
+        # newid might have been fixed, STILL output pickle writing anyway
+        with open(pickle_filename, 'w') as f:
+            dump(a, f)
         return a, pickle_filename
 
-def make_current_fasta(icec_obj, flnc_filename, root_dir):
+def check_n_fix_newids(icec_obj):
     newids = icec_obj['newids']
+
+    if len(newids) == 0:
+        print >> sys.stderr, "newids is empty (probably a finalized run). set it."
+        for k, v in icec_obj['d'].iteritems():
+            if len(v) != 1:
+                newids.add(k)
+        print >> sys.stderr, "added {0} seqs to newids".format(len(newids))
+    return newids
+
+def make_current_fasta(icec_obj, flnc_filename, root_dir):
+    """
+    current fasta will consists of all ids
+
+    however --- if this was a already finished run and we are adding more input,
+        then newids is empty, in this case we set newids = everything that
+        has no affiliation or more than one affiliated cluster in d
+    """
     with open(os.path.join(root_dir, 'current.fasta'), 'w') as f:
         for r in FastaReader(flnc_filename):
-            f.write(">{0}\n{1}\n".format(r.name, r.sequence))
+                f.write(">{0}\n{1}\n".format(r.name, r.sequence))
 
 def pickup_icec_job(pickle_filename, ccs_fofn, flnc_filename, fasta_files_to_add, root_dir):
     icec_obj, icec_pickle_filename = ensure_pickle_goodness(pickle_filename, root_dir, fasta_files_to_add)

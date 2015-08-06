@@ -261,7 +261,8 @@ class IceQuiver(IceFiles):
             sam=real_upath(bin_sam_file),
             ref=real_upath(bin_ref_fa),
             cmph5=real_upath(bin_cmph5)))
-        cmds.append("gzip {sam}".format(sam=real_upath(bin_sam_file)))
+        # (Liz) don't gzip the sa
+        #cmds.append("gzip {sam}".format(sam=real_upath(bin_sam_file)))
         metrics = ["QualityValue", "InsertionQV", "MergeQV", "DeletionQV",
                    "DeletionTag", "SubstitutionTag", "SubstitutionQV"]
         cmds.append("loadPulses {bas_fofn} ".

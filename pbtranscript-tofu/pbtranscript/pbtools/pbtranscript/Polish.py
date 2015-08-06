@@ -47,6 +47,10 @@ class Polish(IceFiles):
         IceFiles.__init__(self, prog_name="IcePolish", root_dir=root_dir,
                           bas_fofn=bas_fofn, ccs_fofn=ccs_fofn,
                           fasta_fofn=fasta_fofn)
+
+        #self.add_log("DEBUG: in Polish ccs_fofn is {0}".format(self.ccs_fofn))
+        #self.add_log("DEBUG: in Polish fasta_fofn is {0}".format(self.fasta_fofn))
+        #self.add_log("DEBUG: in Polish bas_fofn is {0}".format(self.bas_fofn))
         self.nfl_fa = realpath(nfl_fa)
         self.nfl_reads_per_split = nfl_reads_per_split
         self.ice_opts = ice_opts

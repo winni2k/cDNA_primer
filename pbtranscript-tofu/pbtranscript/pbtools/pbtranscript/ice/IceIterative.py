@@ -1338,7 +1338,7 @@ class IceIterative(IceFiles):
                 self.run_post_ICE_merging(
                     consensusFa=self.tmpConsensusFa,
                     pickleFN=self.tmpPickleFN,
-                    max_iter=3,
+                    max_iter=6,
                     use_blasr=True)
             # out_prefix='output/tmp',
             self.add_new_batch(f)
@@ -1421,7 +1421,7 @@ class IceIterative(IceFiles):
             if op.exists(out):  # clean out the blasr file from the last run
                 os.remove(out)
             cmd = "blasr {i} {i} -sa {i}.sa ".format(i=real_upath(fasta_filename)) + \
-                  "-bestn 20 -nCandidates 100 -minPctIdentity 90 -maxLCPLength 15 -m 5 " + \
+                  "-bestn 20 -nCandidates 100 -minPctIdentity 95 -maxLCPLength 15 -m 5 " + \
                   "-maxScore {s} ".format(s=self.maxScore) + \
                   "-nproc {cpu} -out {o}".format(cpu=self.blasr_nproc,
                                                  o=real_upath(out))

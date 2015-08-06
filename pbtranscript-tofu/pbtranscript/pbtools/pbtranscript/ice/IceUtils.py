@@ -1,6 +1,6 @@
 """Define functions useful for IceInit and IceIterative."""
 import pdb
-import os, sys
+import os, sys, subprocess
 import os.path as op
 import logging
 import shutil
@@ -924,3 +924,23 @@ def ice_fa2fq(in_fa, ccs_fofn, out_fq):
     for bas_file, bas_handler in bas_handlers.iteritems():
         logging.debug("Closing {bas_file} ...".format(bas_file=bas_file))
         bas_handler.close()
+
+
+def locally_run_failed_quiver_jobs(bad_sh_files, max_fail=3):
+    """
+    bad_sh_files --- list of xxx.sh Quiver jobs that failed to run. Attempt to re-run.
+    """
+    still_bad = []
+    for sh_file in bad_sh_files:
+        err_count = 0
+        failed = True
+        while err_count <= max_fail:
+            try:
+                subprocess.check_call("bash " + sh_file, shell=True)
+                failed = True
+                break
+            except:
+                err_count += 1
+        if failed: still_bad.append(sh_file)
+    return still_bad
+
