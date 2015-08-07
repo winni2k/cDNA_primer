@@ -5,7 +5,7 @@ import numpy as np
 
 
 __author__ = "jdrake|etseng|yli@pacificbiosciences.com"
-version = "2.1.2"
+version = "2.2.0"
 
 if 'setuptools.extension' in sys.modules:
     m = sys.modules['setuptools.extension']
@@ -47,7 +47,8 @@ setup(
              'pbtools/pbtranscript/ice_quiver.py',
              'pbtools/pbtranscript/ice_fa2fq.py',
             'pbtools/pbtranscript/picking_up_ice.py',
-            'pbtools/pbtranscript/cleanup_ice.py'
+            'pbtools/pbtranscript/cleanup_ice.py',
+            'pbtools/pbtranscript/counting/chain_samples.py'
         ],
 
 

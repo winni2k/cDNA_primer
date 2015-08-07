@@ -314,7 +314,7 @@ def tofu_wrap_main():
 
         obj = Cluster(root_dir=cur_dir,
                 flnc_fa=cur_file,
-                nfl_fa=args.nfl_fa,
+                nfl_fa=realpath(args.nfl_fa),
                 bas_fofn=realpath(args.bas_fofn),
                 ccs_fofn=realpath(args.ccs_fofn),
                 fasta_fofn=realpath(args.fasta_fofn),
