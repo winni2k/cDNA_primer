@@ -151,23 +151,23 @@ def combine_quiver_results(split_dirs, output_dir, hq_filename, lq_filename, tof
     print >> sys.stderr, "LQ quivered output combined to:", fout_lq.file.name
     return fout_hq.file.name,fout_lq.file.name,prefix_dict_hq,prefix_dict_lq
 
-def run_collapse_sam(fastq_filename, gmap_db_dir, gmap_db_name, cpus=24, min_coverage=0.99, min_identity=0.85, dun_merge_5_shorter=False):
+def run_collapse_sam(fastq_filename, gmap_db_dir, gmap_db_name, cpus=24, min_coverage=0.99, min_identity=0.95, dun_merge_5_shorter=False, max_fuzzy_junction=5):
     """
     Wrapper for running collapse script
     (a) run GMAP
     (b) sort GMAP sam
     (c) run collapse_isoforms_by_sam
     """
-    cmd = "gmap -D {d} -d {name} -n 0 -t {cpus} -f samse {fq} > {fq}.sam 2> {fq}.sam.log".format(\
+    cmd = "gmap -D {d} -d {name} -n 0 -t {cpus} -z sense_force --cross-species -f samse {fq} > {fq}.sam 2> {fq}.sam.log".format(\
             d=gmap_db_dir, name=gmap_db_name, cpus=cpus, fq=fastq_filename)
     print >> sys.stderr, "CMD:", cmd
     subprocess.check_call(cmd, shell=True)
     cmd = "sort -k 3,3 -k 4,4n {fq}.sam > {fq}.sorted.sam".format(fq=fastq_filename)
     print >> sys.stderr, "CMD:", cmd
     subprocess.check_call(cmd, shell=True) 
-    cmd = "collapse_isoforms_by_sam.py --input {fq} --fq -s {fq}.sorted.sam -c {c} -i {i}".format(\
+    cmd = "collapse_isoforms_by_sam.py --input {fq} --fq -s {fq}.sorted.sam --max_fuzzy_junction {j} -c {c} -i {i}".format(\
             c=min_coverage, i=min_identity, 
-            fq=fastq_filename)
+            fq=fastq_filename, j=max_fuzzy_junction)
     if dun_merge_5_shorter:
         cmd += " --dun-merge-5-shorter -o {fq}.no5merge".format(fq=fastq_filename)
     else:
@@ -179,6 +179,7 @@ def run_collapse_sam(fastq_filename, gmap_db_dir, gmap_db_name, cpus=24, min_cov
         return fastq_filename + '.no5merge.collapsed'
     else:
         return fastq_filename + '.5merge.collapsed'
+
 
 def get_abundance(collapse_prefix, prefix_dict, output_prefix, restricted_movies=None):
     cid_info = sp.read_group_filename(collapse_prefix + ".group.txt", is_cid=True,\
@@ -201,6 +202,13 @@ def get_abundance(collapse_prefix, prefix_dict, output_prefix, restricted_movies
     sp.make_abundance_file(output_prefix + '.read_stat.txt', output_prefix + '.abundance.txt', restricted_movies=restricted_movies)
     print >> sys.stderr, "Abundance file written to", output_prefix + '.abundance.txt'
 
+def run_filtering_by_count(input_prefix, output_prefix, min_count):
+    cmd = "filter_by_count.py {i} {o} --min_count {c}".format(i=input_prefix,
+                                                              o=output_prefix,
+                                                              c=min_count)
+    print >> sys.stderr, "CMD:", cmd
+    subprocess.check_call(cmd, shell=True)
+
 def tofu_wrap_main():
     parser = argparse.ArgumentParser(prog='tofu_wrap')
     add_cluster_arguments(parser, show_sge_env_name=True, show_sge_queue=True)
@@ -213,6 +221,7 @@ def tofu_wrap_main():
     parser.add_argument("--gmap_db", default="/home/UNIXHOME/etseng/share/gmap_db_new/", help="GMAP DB location (default: /home/UNIXHOME/etseng/share/gmap_db_new/)")
     parser.add_argument("--output_seqid_prefix", type=str, default=None, help="Output seqid prefix. If not given, a random ID is generated")
     parser.add_argument("--mem_debug", default=False, action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--max_fuzzy_junction", default=5, type=int, help="Max fuzzy junction (default: 5 bp)")
     parser.add_argument("--version", action='version', version='%(prog)s ' + str(get_version()))
     args = parser.parse_args()
 
@@ -271,7 +280,7 @@ def tofu_wrap_main():
 
     # (1) separate input flnc into size bins or primers
     if args.bin_by_primer:
-        split_files = sep_flnc_by_primer(args.flnc_fa, args.root_dir)
+        split_files = sep_flnc_by_primer(args.flnc_fa, os.path.abspath(args.root_dir))
     else:
         bin_manual = eval(args.bin_manual) if args.bin_manual is not None else None
         split_files = sep_flnc_by_size(args.flnc_fa, args.root_dir, bin_size_kb=args.bin_size_kb, bin_manual=bin_manual, max_base_limit_MB=args.max_base_limit_MB)
@@ -347,9 +356,11 @@ def tofu_wrap_main():
     with open(os.path.join(args.root_dir, 'combined', 'combined.hq_lq_pre_dict.pickle'), 'w') as f:
         dump({'HQ': hq_pre_dict, 'LQ': lq_pre_dict}, f)
     # (5) collapse quivered HQ results
-    collapse_prefix_hq = run_collapse_sam(hq_filename, args.gmap_db, args.gmap_name, cpus=args.blasr_nproc)
+    collapse_prefix_hq = run_collapse_sam(hq_filename, args.gmap_db, args.gmap_name, cpus=args.blasr_nproc, max_fuzzy_junction=args.max_fuzzy_junction)
     # (6) make abundance 
     get_abundance(collapse_prefix_hq, hq_pre_dict, collapse_prefix_hq)
+    # (7) run filtering
+    run_filtering_by_count(collapse_prefix_hq, collapse_prefix_hq+'.min_fl_2', min_count=2)
     # Now do it for LQ (turned OFF for now)
     #collapse_prefix_lq = run_collapse_sam(lq_filename, args.gmap_db, args.gmap_name, cpus=args.blasr_nproc)
     #get_abundance(collapse_prefix_lq, lq_pre_dict, collapse_prefix_lq)

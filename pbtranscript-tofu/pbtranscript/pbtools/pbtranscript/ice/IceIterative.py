@@ -1547,7 +1547,7 @@ class IceIterative(IceFiles):
         self.run_post_ICE_merging(consensusFa=self.tmpConsensusFa,
                                   pickleFN=self.tmpPickleFN,
                                   max_iter=3,
-                                  use_blasr=True)
+                                  use_blasr=False)
         # run extra rounds using BLASR
         if self.ice_opts.targeted_isoseq:
             self.run_post_ICE_merging(consensusFa=self.tmpConsensusFa,

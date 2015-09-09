@@ -495,6 +495,64 @@ class pasaGFFReader(gmapGFFReader):
             if type == 'exon':
                 rec.add_exon(start1-1, end1, -2, -1, None)
 
+
+class exonGFFReader(gmapGFFReader):
+    """
+    Every line is an "exon". The only way to tell a new record showed up is by looking at transcript_id.
+
+    ex:
+    SIRV1   LexogenSIRVData exon    1001    1484    .       -       0       gene_id "SIRV1"; transcript_id "SIRV101"; e
+xon_assignment "SIRV101_0";
+    SIRV1   LexogenSIRVData exon    6338    6473    .       -       0       gene_id "SIRV1"; transcript_id "SIRV101"; e
+xon_assignment "SIRV101_1";
+
+    """
+    def read(self):
+        cur = self.f.tell()
+        line = self.f.readline().strip()
+        if len(line) == 0:
+            raise StopIteration, "EOF reached!!"
+        raw = line.split('\t')
+        assert raw[2] == 'exon'
+
+        chr = raw[0]
+        strand = raw[6]
+        start1, end1 = int(raw[3]), int(raw[4])
+        for blob in raw[8].split('; '):
+            if blob.startswith('transcript_id'): # ex: transcript_id "asmbl_7"
+                tid = blob[15:-1]
+            #elif blob.startswith('gene_id'): # ex: gene_id "S2"
+            #    gid = blob[9:-1]
+
+        rec = gmapRecord(chr=chr, coverage=None, identity=None, strand=strand, seqid=tid)
+        rec.add_exon(start1-1, end1, -2, -1, '+', None)
+
+        while True:
+            #pdb.set_trace()
+            cur_pos = self.f.tell()
+            line = self.f.readline().strip()
+            if len(line) == 0:
+                return rec
+                break
+            raw = line.split('\t')
+            type = raw[2]
+            assert type == 'exon'
+            start1, end1 = int(raw[3]), int(raw[4])
+            tid = None
+            for blob in raw[8].split('; '):
+                if blob.startswith('transcript_id'): # ex: transcript_id "asmbl_7"
+                    tid = blob[15:-1]
+
+            assert tid is not None
+            if tid != rec.seqid:
+                self.f.seek(cur_pos)
+                return rec
+            else:
+                rec.add_exon(start1-1, end1, -2, -1, '+', None)
+        raise StopIteration, "EOF reached!!"
+
+#add_exon(self, rStart0, rEnd1, sStart0, sEnd1, rstrand, score)
+
 def write_collapseGFF_format(f, r):
     f.write("{chr}\tPacBio\ttranscript\t{s}\t{e}\t.\t{strand}\t.\tgene_id \"{gid}\"; transcript_id \"{tid}\";\n".format(chr=r.chr, s=r.start+1, e=r.end, strand=r.strand,gid=r.seqid[:r.seqid.rfind('.')], tid=r.seqid))
     for exon in r.ref_exons:

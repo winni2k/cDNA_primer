@@ -124,7 +124,7 @@ def sanity_check_sge(sge_opts, scriptDir, testDirName="gcon_test_dir"):
 
 def set_daligner_sensitivity_setting(fasta_filename):
     lens = np.array([len(r.sequence) for r in FastaReader(fasta_filename)])
-    _low, _high = np.percentile(lens, [25, 75])
+    _low, _high = np.percentile(lens, [10, 90])
     _low  = int(_low)
     _high = int(_high)
     if _low >= 6000:
@@ -593,15 +593,14 @@ def concat_sam(samfiles, outsam_filename):
     os.remove(f_sq.name)
     os.remove(f_bd.name)
 
-def convert_fofn_to_fasta_worker(in_queue, out_fns):
+def convert_fofn_to_fasta_worker(in_queue):
     while not in_queue.empty():
         stuff = in_queue.get()
         pls2fasta_cmd, tmp_out_file, out_file = stuff
         _out, _code, _msg = backticks(pls2fasta_cmd)
         if _code != 0:
-            raise RuntimeError("CMD failed: {cmd}\n".format(cmd=cmd) + _msg)
+            raise RuntimeError("CMD failed: {cmd}\n".format(cmd=pls2fasta_cmd) + _msg)
         trim_subread_flanks(tmp_out_file, out_file)
-        out_fns.append(out_file)
         if op.exists(tmp_out_file):
             os.remove(tmp_out_file)
 
@@ -618,12 +617,11 @@ def convert_fofn_to_fasta(fofn_filename, out_filename, fasta_out_dir,
 
     # multiprocessing worker stuff
     manager = Manager()
-    out_fns = manager.list()
-    in_queue = manager.Queue(99999)
-    pool = [] 
-    for i in xrange(cpus):
-        p = Process(target=convert_fofn_to_fasta_worker, args=(in_queue, out_fns))
-        pool.append(p)
+    in_queue = manager.Queue(len(in_fns))
+    in_queue_count = 0
+    outfile_track = {} # expected out file --> (cmd, tmp)
+    pool = []
+    out_fns = []
 
     for in_fn in in_fns:
         #print >> sys.stderr, "DEBUG: converting h5 file:", in_fn
@@ -649,23 +647,34 @@ def convert_fofn_to_fasta(fofn_filename, out_filename, fasta_out_dir,
                   "-minSubreadLength 300 -minReadScore 750 -trimByRegion"
             print >> sys.stderr, "DEBUG: putting in queue:", cmd, tmp_out_file, out_file
             in_queue.put((cmd, tmp_out_file, out_file))
+            in_queue_count += 1
+            outfile_track[out_file] = (cmd, tmp_out_file)
             print >> sys.stderr, "DEBUG: put in queue:", cmd, tmp_out_file, out_file
-#            logging.debug("CMD: {cmd}".format(cmd=cmd))
-#            _out, _code, _msg = backticks(cmd)
-#            if _code != 0:
-#                raise RuntimeError("CMD failed: {cmd}\n".format(cmd=cmd) + _msg)
-#            trim_subread_flanks(tmp_out_file, out_file)
-#        out_fns.append(out_file)
-#        if op.exists(tmp_out_file):
-#            os.remove(tmp_out_file)
 
+    cpus = min(cpus, in_queue_count) # cap max CPU if there's fewer files to convert
+    for i in xrange(cpus):
+        p = Process(target=convert_fofn_to_fasta_worker, args=(in_queue,))
+        pool.append(p)
+
+    #error_flag = False
     # starting & joining pool worakers
     for p in pool:
         p.start()
         #print >> sys.stderr, "Starting worker", p.name
     for p in pool:
         #print >> sys.stderr, "Waiting join", p.name
-        p.join()
+        p.join(timeout=1200)
+        if p.is_alive(): p.terminate()
+
+    # check that all files exists
+    # if it does not, force to run locally
+    for out_file,(cmd, tmp_out_file) in outfile_track.iteritems():
+        in_queue.put((cmd, tmp_out_file, out_file))
+        convert_fofn_to_fasta_worker(in_queue)
+        out_fns.append(out_file)
+
+    #if error_flag:
+    #    raise Exception, "Unable to successfuly run convert_fofn_to_fasta, ABORT!"
 
     write_files_to_fofn(out_fns, out_filename)
 

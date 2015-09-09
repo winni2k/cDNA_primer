@@ -45,7 +45,7 @@ def read_config(filename):
     return sample_dirs, sample_names, group_filename, gff_filename, count_filename
 
 
-def chain_samples(dirs, names, group_filename, gff_filename, count_filename):
+def chain_samples(dirs, names, group_filename, gff_filename, count_filename, field_to_use='norm_nfl', fuzzy_junction=0):
     count_info = {} # key: (sample, PB.1.1) --> count
     for name, d in dirs.iteritems():
         f = open(os.path.join(d, count_filename))
@@ -54,13 +54,13 @@ def chain_samples(dirs, names, group_filename, gff_filename, count_filename):
             if not f.readline().startswith('#'): break
         f.seek(cur)
         for r in DictReader(f, delimiter='\t'):
-            count_info[name, r['pbid']] = r['norm_nfl']
+            count_info[name, r['pbid']] = r[field_to_use]
 
     name = names[0]
     d = dirs[name]
     chain = [name]
 
-    o = sp.MegaPBTree(os.path.join(d, gff_filename), os.path.join(d, group_filename), self_prefix=name)
+    o = sp.MegaPBTree(os.path.join(d, gff_filename), os.path.join(d, group_filename), self_prefix=name, internal_fuzzy_max_dist=fuzzy_junction)
     for name in names[1:]:
         d = dirs[name]
         o.add_sample(os.path.join(d, gff_filename), os.path.join(d, group_filename), sample_prefix=name, output_prefix='tmp_'+name)
@@ -128,8 +128,10 @@ if __name__ == "__main__":
     from argparse import ArgumentParser
     parser = ArgumentParser()
     parser.add_argument("config_file")
+    parser.add_argument("field_to_use", choices=['norm_fl', 'norm_nfl', 'norm_nfl_amb'], default='norm_nfl', help="Which count field to use for chained sample (default: norm_nfl)")
+    parser.add_argument("--fuzzy_junction", default=5, type=int, help="Max allowed distance in junction to be considered identical (default: 5 bp)")
 
     args = parser.parse_args()
 
     sample_dirs, sample_names, group_filename, gff_filename, count_filename = read_config(args.config_file)
-    chain_samples(sample_dirs, sample_names, group_filename, gff_filename, count_filename)
+    chain_samples(sample_dirs, sample_names, group_filename, gff_filename, count_filename, args.field_to_use, args.fuzzy_junction)

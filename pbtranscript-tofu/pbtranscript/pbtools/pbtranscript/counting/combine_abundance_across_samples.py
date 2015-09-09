@@ -11,10 +11,11 @@ class MegaPBTree:
     Structure for maintaining a non-redundant set of gene annotations
     Used to combine with different collapsed GFFs from different samples
     """
-    def __init__(self, gff_filename, group_filename, self_prefix=None):
+    def __init__(self, gff_filename, group_filename, internal_fuzzy_max_dist=0, self_prefix=None):
         self.gff_filename = gff_filename
         self.group_filename = group_filename
         self.self_prefix = self_prefix
+        self.internal_fuzzy_max_dist = internal_fuzzy_max_dist
         self.record_d = dict((r.seqid, r) for r in GFF.collapseGFFReader(gff_filename))
         self.tree = defaultdict(lambda: {'+':IntervalTree(), '-':IntervalTree()}) # chr --> strand --> tree
 
@@ -53,7 +54,7 @@ class MegaPBTree:
         for r2 in matches:
             r.segments = r.ref_exons
             r2.segments = r2.ref_exons
-            if compare_junctions.compare_junctions(r, r2) == 'exact': # is a match!
+            if compare_junctions.compare_junctions(r, r2, internal_fuzzy_max_dist=self.internal_fuzzy_max_dist) == 'exact': # is a match!
                 return r2
         return None
 

@@ -2,7 +2,7 @@ import os, sys
 import numpy as np
 import pbtools.pbtranscript.BioReaders as BioReaders
 import pbtools.pbtranscript.c_branch as c_branch
-from pbtools.pbtranscript.modified_bx_intervals.intersection_unique import IntervalTreeUnique
+from pbtools.pbtranscript.modified_bx_intervals.intersection_unique import IntervalTreeUnique, Interval, IntervalNodeUnique
 from pbcore.io.FastaIO import FastaReader
 from pbcore.io.FastqIO import FastqReader
 
@@ -27,6 +27,7 @@ class BranchSimple:
     def __init__(self, transfrag_filename, cov_threshold=2, min_aln_coverage=.99, min_aln_identity=.85, is_fq=False):
         self.contiVec = None # current ContiVec object
         self.exons = None
+        #self.MIN_EXON_SIZE = max_fuzzy_junction
 
         self.transfrag_filename = transfrag_filename
         if is_fq:
@@ -133,7 +134,7 @@ class BranchSimple:
 
     def exon_finding(self):
         """
-        Go through contiVec to identify the exons using base coverage (.baseC) and alt junction evidence (.altC)
+        Go through contiVec to idfentify the exons using base coverage (.baseC) and alt junction evidence (.altC)
         """
         v = self.contiVec
         self.exons = c_branch.exon_finding(v.baseC, v.altC_neg, v.altC_pos, v.transC, \
@@ -173,6 +174,64 @@ class BranchSimple:
         return result
 
 
+##### THIS DOES NOT REALLY WORK.....use fuzzy collapse instead :((((
+    # def correct_micro_exons(self):
+    #     """
+    #     ToDo: this should eventually be moved into c_branch.pyx, leaving here now so I don't have to compile Cython
+    #           during heavy debugging phase.
+    #
+    #     The point here is after self.exon_finding(), correct those "micro exons" that are only 1 or 2 bps
+    #     ex: exon 1 is 1 - 2
+    #         exon 2 is 2-100
+    #
+    #     most likely this is a GMAP artifact. the answer is either 1-100 or 2-100
+    #     there are two ways to correct it:
+    #     <a> use the one that has higher baseC
+    #     <b> if genome available, use the one that has canonical splice site (IMPLEMENT LATER)
+    #
+    #     Steps:
+    #     --- identify all micro exons that are (i) X bp or shorter and (ii) adjacent to another exon (iii) directionality is the same
+    #     --- use criterion above to decide what correct exon is
+    #     """
+    #     def correct_exon(_prev, _next):
+    #         """
+    #         note: _prev is always the microexon and _next is the downstream one
+    #         ex: _prev is 1 - 2
+    #             _next is 2 - 4
+    #
+    #         """
+    #         print "baseC:", self.contiVec.baseC[_prev.start-self.offset-5:_prev.end-self.offset+5]
+    #         print "altC pos:", self.contiVec.altC_pos[_prev.start-self.offset-5:_prev.end-self.offset+5]
+    #         print "altC neg:", self.contiVec.altC_neg[_prev.start-self.offset-5:_prev.end-self.offset+5]
+    #         if self.contiVec.baseC[_prev.start-self.offset] >= self.contiVec.baseC[_prev.end-self.offset]:
+    #                 # prev has more evidence
+    #             x = Interval(_prev.start, _next.end, _prev.interval.value)
+    #             return IntervalNodeUnique(x.start, x.end, x)
+    #         else: # next has more evidence
+    #             x = Interval(_next.start, _next.end, _prev.interval.value)
+    #             return IntervalNodeUnique(x.start, x.end, x)
+    #
+    #
+    #     p = []
+    #     self.exons.traverse(p.append)
+    #
+    #     i = 0
+    #     while i < len(p) - 1:
+    #         x = p[i]
+    #         if x.end - x.start < self.MIN_EXON_SIZE:
+    #             if x.end == p[i+1].start: # adjacent w/ downstream
+    #                 new_e = correct_exon(x, p[i+1])
+    #                 if new_e is not None:
+    #                     print >> sys.stderr, "merging {0}, {1} --> {2}".format(x, p[i+1], new_e)
+    #                     raw_input()
+    #                     p.pop(i)
+    #                     p[i] = new_e
+    #                 else: i += 1 # nothing to do becuz directionality diff, advance
+    #             else:
+    #                 i += 1 # nothing to do, advance
+    #         else:
+    #             i += 1 # nothing to do, advance
+
     def process_records(self, records, allow_extra_5_exons, skip_5_exon_alt, f_good, f_bad, f_group, tolerate_end=100, starting_isoform_index=0, gene_prefix='PB'):
         """
         Given a set of records
@@ -186,13 +245,15 @@ class BranchSimple:
         self.parse_transfrag2contig(records, skip_5_exon_alt)
         self.exon_finding()
 
+        #self.correct_micro_exons() # DOES NOT WORK....
+
         p = []
         self.exons.traverse(p.append)
         node_d = dict((x.interval.value, x) for x in p)
         mat_size = max(x.interval.value for x in p) + 1
         result = []
         for r in records:
-            stuff = self.match_record(r, tolerate_middle=0, tolerate_end=tolerate_end)
+            stuff = self.match_record(r, tolerate_end=tolerate_end)#, tolerate_middle=self.MIN_EXON_SIZE)
             m = np.zeros((1, mat_size), dtype=np.int)
             for x in stuff: m[0, x.value]=1
             result.append((r.qID, r.flag.strand, m))

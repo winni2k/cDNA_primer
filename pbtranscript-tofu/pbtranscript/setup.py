@@ -5,7 +5,7 @@ import numpy as np
 
 
 __author__ = "jdrake|etseng|yli@pacificbiosciences.com"
-version = "2.2.0"
+version = "2.2.1"
 
 if 'setuptools.extension' in sys.modules:
     m = sys.modules['setuptools.extension']
@@ -42,6 +42,7 @@ setup(
              'pbtools/pbtranscript/collapse_isoforms_by_sam.py',
              'pbtools/pbtranscript/fusion_finder.py',
              'pbtools/pbtranscript/tofu_wrap.py',
+             'pbtools/pbtranscript/filter_by_count.py',
              'pbtools/pbtranscript/ice_partial.py',
              'pbtools/pbtranscript/ice_pbdagcon.py',
              'pbtools/pbtranscript/ice_quiver.py',

@@ -3,7 +3,9 @@
 Define files which are used or created in the ICE algorithm,
 including temporary results, output files, scripts and logs.
 """
+import os
 import os.path as op
+import time
 import logging
 from multiprocessing import Process
 from pbcore.util.Process import backticks
@@ -341,13 +343,24 @@ def wait_for_sge_jobs(cmd, jids, timeout):
     If timeout occurs, simply qdel all jids (ignoring whether they exist or not)
     and let the main function that calls it handle what to do
     """
+    def get_active_jids():
+        stuff = os.popen("qstat").read().strip().split('\n')
+        for x in stuff[2:]:
+            job_id = x.split()[0]
+            yield job_id
+
     p = Process(target=wait_for_sge_jobs_worker, args=(cmd,))
     p.start()
     p.join(timeout)
     if p.is_alive(): # timed out
-        for jid in jids:
-            kill_cmd = "qdel " + str(jid)
-            backticks(kill_cmd) # don't care whether it worked
+        active_jids = [x for x in get_active_jids()]
+        while len(active_jids) > 0:
+            for jid in active_jids:
+                kill_cmd = "qdel " + str(jid)
+                backticks(kill_cmd) # don't care whether it worked
+            time.sleep(3) # wait 3 sec for qdel to take effect....
+            active_jids = [x for x in get_active_jids()] # make sure qdel really worked
         return "TIMEOUT"
     return "SUCCESS"
+
 
