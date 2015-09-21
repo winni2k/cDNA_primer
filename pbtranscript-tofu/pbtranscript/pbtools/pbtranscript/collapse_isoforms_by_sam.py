@@ -107,7 +107,7 @@ def pick_rep(fa_fq_filename, gff_filename, group_filename, output_filename, is_f
 from collections import defaultdict
 from bx.intervals import IntervalTree
 
-def collapse_fuzzy_junctions(gff_filename, group_filename, internal_fuzzy_max_dist):
+def collapse_fuzzy_junctions(gff_filename, group_filename, allow_extra_5exon, internal_fuzzy_max_dist):
     def get_fl_from_id(members):
         # ex: 13cycle_1Mag1Diff|i0HQ_SIRV_1d1m|c139597/f1p0/178
         return sum(int(_id.split('/')[1].split('p')[0][1:]) for _id in members)
@@ -115,6 +115,10 @@ def collapse_fuzzy_junctions(gff_filename, group_filename, internal_fuzzy_max_di
     def can_merge(m, r1, r2):
         if m == 'exact':
             return True
+        else:
+            if not allow_extra_5exon:
+                return False
+        # below is continued only if (a) is 'subset' or 'super' AND (b) allow_extra_5exon is True
         if m == 'subset':
             r1, r2 = r2, r1 #  rotate so r1 is always the longer one
         if m == 'super' or m == 'subset':
@@ -215,7 +219,7 @@ def main(args):
     f_txt.close()
 
     if args.max_fuzzy_junction > 0: # need to further collapse those that have fuzzy junctions!
-        collapse_fuzzy_junctions(f_good.name, f_txt.name, internal_fuzzy_max_dist=args.max_fuzzy_junction)
+        collapse_fuzzy_junctions(f_good.name, f_txt.name, args.allow_extra_5exon, internal_fuzzy_max_dist=args.max_fuzzy_junction)
         os.rename(f_good.name, f_good.name+'.unfuzzy')
         os.rename(f_txt.name, f_txt.name+'.unfuzzy')
         os.rename(f_good.name+'.fuzzy', f_good.name)
