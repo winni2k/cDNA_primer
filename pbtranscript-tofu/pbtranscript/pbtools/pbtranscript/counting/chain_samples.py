@@ -64,7 +64,7 @@ def chain_samples(dirs, names, group_filename, gff_filename, count_filename, fie
     for name in names[1:]:
         d = dirs[name]
         o.add_sample(os.path.join(d, gff_filename), os.path.join(d, group_filename), sample_prefix=name, output_prefix='tmp_'+name)
-        o = sp.MegaPBTree('tmp_'+name+'.gff', 'tmp_'+name+'.group.txt', self_prefix='tmp_'+name)
+        o = sp.MegaPBTree('tmp_'+name+'.gff', 'tmp_'+name+'.group.txt', self_prefix='tmp_'+name, internal_fuzzy_max_dist=fuzzy_junction)
         chain.append(name)
 
     # now recursively chain back by looking at mega_info.txt!!!

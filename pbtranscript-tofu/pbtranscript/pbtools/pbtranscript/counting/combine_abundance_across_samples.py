@@ -19,6 +19,8 @@ class MegaPBTree:
         self.record_d = dict((r.seqid, r) for r in GFF.collapseGFFReader(gff_filename))
         self.tree = defaultdict(lambda: {'+':IntervalTree(), '-':IntervalTree()}) # chr --> strand --> tree
 
+        #print >> sys.stderr, "self.internal_fuzzy_max_dist is", internal_fuzzy_max_dist
+        #raw_input()
         self.read_gff_as_interval_tree()
         self.group_info = MegaPBTree.read_group(self.group_filename, self.self_prefix) # ex: PB.1.1 --> [ RatHeart|i3_c123.... ]
 
