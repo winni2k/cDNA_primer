@@ -14,10 +14,10 @@ from bisect import bisect_right
 from collections import defaultdict
 from pbtools.pbtranscript.__init__ import get_version
 
-def sep_flnc_by_primer(flnc_filename, root_dir, output_filename='isoseq_flnc.fasta'):
+def sep_flnc_by_primer(flnc_filename, root_dir, output_filename='isoseq_flnc.fastq'):
     """
-    Separate flnc fasta by primer. Useful for targeted sequencing.
-    ex: make <root_dir>/primer0/isoseq_flnc.fasta ... etc ...
+    Separate flnc fastq by primer. Useful for targeted sequencing.
+    ex: make <root_dir>/primer0/isoseq_flnc.fastq ... etc ...
     """
     def get_primer(r):
         for x in r.name.split(';'):
@@ -26,7 +26,7 @@ def sep_flnc_by_primer(flnc_filename, root_dir, output_filename='isoseq_flnc.fas
         return None
 
     primers = set()
-    for r in FastaReader(flnc_filename):
+    for r in FastqReader(flnc_filename):
         p = get_primer(r)
         if p is None:
             raise Exception, "ERROR: Unable to find primer information from sequence ID for {0}! Abort!".format(r.name)
@@ -39,23 +39,25 @@ def sep_flnc_by_primer(flnc_filename, root_dir, output_filename='isoseq_flnc.fas
             print >> sys.stderr, "WARNING: {0} already exists.".format(dirname)
         else:
             os.makedirs(dirname)
-        handles[p] = open(os.path.join(dirname, output_filename), 'w')
+        handles[p] = FastqWriter(os.path.join(dirname, output_filename))
+        #handles[p] = open(os.path.join(dirname, output_filename), 'w')
 
-    for r in FastaReader(flnc_filename):
+    for r in FastqReader(flnc_filename):
         p = get_primer(r)
-        handles[p].write(">{0}\n{1}\n".format(r.name, r.sequence))
+        handles[p].writeRecord(r.name, r.sequence, r.quality)
+        #handles[p].write(">{0}\n{1}\n".format(r.name, r.sequence))
 
     for f in handles.itervalues(): f.close()
     primers = list(primers)
     primers.sort(key=lambda x: int(x))
-    names = [handles[x].name for x in primers]
+    names = [handles[x].file.name for x in primers]
     return filter(lambda x: os.stat(x).st_size > 0, names)
 
 
-def sep_flnc_by_size(flnc_filename, root_dir, bin_size_kb=1, bin_manual=None, max_base_limit_MB=600, output_filename='isoseq_flnc.fasta'):
+def sep_flnc_by_size(flnc_filename, root_dir, bin_size_kb=1, bin_manual=None, max_base_limit_MB=600, output_filename='isoseq_flnc.fastq'):
     """
-    Separate flnc fasta into different size bins
-    ex: make <root_dir>/0to2k/isoseq_flnc.fasta ... etc ...
+    Separate flnc fastq into different size bins
+    ex: make <root_dir>/0to2k/isoseq_flnc.fastq ... etc ...
 
     If <bin_manual> (ex: (0, 2, 4, 12)) is given, <bin_size_kb> is ignored.
 
@@ -66,7 +68,7 @@ def sep_flnc_by_size(flnc_filename, root_dir, bin_size_kb=1, bin_manual=None, ma
     min_size = 0
     max_size = 0
     base_in_each_size = defaultdict(lambda: 0) # size(in kb)--> number of bases
-    for r in FastaReader(flnc_filename):
+    for r in FastqReader(flnc_filename):
         seqlen = len(r.sequence)
         min_size = min(min_size, seqlen)
         max_size = max(max_size, seqlen)
@@ -106,22 +108,22 @@ def sep_flnc_by_size(flnc_filename, root_dir, bin_size_kb=1, bin_manual=None, ma
                 print >> sys.stderr, "WARNING: {0} already exists.".format(dirname)
             else:
                 os.makedirs(dirname)
-            handles[(i,part)] = open(os.path.join(dirname, output_filename), 'w')
+            handles[(i,part)] = FastqWriter(os.path.join(dirname, output_filename))
 
 
-    for r in FastaReader(flnc_filename):
+    for r in FastqReader(flnc_filename):
         kb_size = len(r.sequence)/1000
         i = min(max_bin, max(0, bisect_right(bins, kb_size)-1))
         part = part_counter_in_each_bin[i] % num_parts_in_each_bin[i]
         part_counter_in_each_bin[i] += 1
-        handles[(i,part)].write(">{0}\n{1}\n".format(r.name, r.sequence))
-        print >> sys.stderr, "putting {0} in {1}".format(len(r.sequence), handles[(i,part)].name)
+        handles[(i,part)].writeRecord(r.name, r.sequence, r.quality)
+        print >> sys.stderr, "putting {0} in {1}".format(len(r.sequence), handles[(i,part)].file.name)
     for h in handles.itervalues(): h.close()
 
     names = []
     for i in xrange(len(bins)-1):
         for part in xrange(num_parts_in_each_bin[i]):
-            names.append(handles[(i,part)].name)
+            names.append(handles[(i,part)].file.name)
     return filter(lambda x: os.stat(x).st_size > 0, names)
 
 def combine_quiver_results(split_dirs, output_dir, hq_filename, lq_filename, tofu_prefix=''):

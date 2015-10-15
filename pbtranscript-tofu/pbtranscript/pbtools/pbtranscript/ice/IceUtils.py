@@ -11,7 +11,7 @@ from multiprocessing import Process, Manager
 from cPickle import dump, load
 from collections import defaultdict
 from pbcore.util.Process import backticks
-from pbcore.io import FastaReader, FastaWriter, FastqWriter, \
+from pbcore.io import FastaReader, FastaWriter, FastqReader, FastqWriter, \
         BasH5Reader
 from pbtools.pbtranscript.Utils import realpath, mkdir, \
         get_files_from_fofn, write_files_to_fofn, real_upath
@@ -122,26 +122,29 @@ def sanity_check_sge(sge_opts, scriptDir, testDirName="gcon_test_dir"):
 
 
 
-def set_daligner_sensitivity_setting(fasta_filename):
-    lens = np.array([len(r.sequence) for r in FastaReader(fasta_filename)])
+def set_daligner_sensitivity_setting(fastq_filename, is_fasta=False):
+    if is_fasta:
+        lens = np.array([len(r.sequence) for r in FastaReader(fastq_filename)])
+    else:
+        lens = np.array([len(r.sequence) for r in FastqReader(fastq_filename)])
     _low, _high = np.percentile(lens, [10, 90])
     _low  = int(_low)
     _high = int(_high)
     if _low >= 6000:
-        with open(fasta_filename+'.sensitive.config', 'w') as f:
+        with open(fastq_filename+'.sensitive.config', 'w') as f:
             f.write("sensitive=True\n")
             f.write("low={0}\nhigh={1}\n".format(_low, _high))
         return True, _low, _high
     else:
-        with open(fasta_filename+'.sensitive.config', 'w') as f:
+        with open(fastq_filename+'.sensitive.config', 'w') as f:
             f.write("sensitive=False\n")
             f.write("low={0}\nhigh={1}\n".format(_low, _high))
         return False, _low, _high
 
-def get_daligner_sensitivity_setting(fasta_filename):
-    config = fasta_filename + '.sensitive.config'
+def get_daligner_sensitivity_setting(fastq_filename, is_fasta=False):
+    config = fastq_filename + '.sensitive.config'
     if not os.path.exists(config):
-        return set_daligner_sensitivity_setting(fasta_filename)
+        return set_daligner_sensitivity_setting(fastq_filename, is_fasta)
     else:
         with open(config) as f:
             a, b = f.readline().strip().split('=')
@@ -888,6 +891,10 @@ def get_qv_from_bas_handler(bas_handler, hn, s_e, qv_name):
         qvs = qvs[::-1]
     return qvs
 
+def ice_fq2fa(in_fq, out_fa):
+    handle = FastaWriter(out_fa)
+    for r in FastqReader(in_fq):
+        handle.writeRecord(r.name, r.sequence)
 
 def ice_fa2fq(in_fa, ccs_fofn, out_fq):
     """Convert an input FASTA file to an output FASTQ file,
