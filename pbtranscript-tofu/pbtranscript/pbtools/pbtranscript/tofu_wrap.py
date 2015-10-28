@@ -160,10 +160,11 @@ def run_collapse_sam(fastq_filename, gmap_db_dir, gmap_db_name, cpus=24, min_cov
     (b) sort GMAP sam
     (c) run collapse_isoforms_by_sam
     """
-    cmd = "gmap -D {d} -d {name} -n 0 -t {cpus} -z sense_force --cross-species -f samse {fq} > {fq}.sam 2> {fq}.sam.log".format(\
-            d=gmap_db_dir, name=gmap_db_name, cpus=cpus, fq=fastq_filename)
-    print >> sys.stderr, "CMD:", cmd
-    subprocess.check_call(cmd, shell=True)
+    if not os.path.exists(fastq_filename + '.sam'):
+        cmd = "gmap -D {d} -d {name} -n 0 -t {cpus} -z sense_force --cross-species -f samse {fq} > {fq}.sam 2> {fq}.sam.log".format(\
+                d=gmap_db_dir, name=gmap_db_name, cpus=cpus, fq=fastq_filename)
+        print >> sys.stderr, "CMD:", cmd
+        subprocess.check_call(cmd, shell=True)
     cmd = "sort -k 3,3 -k 4,4n {fq}.sam > {fq}.sorted.sam".format(fq=fastq_filename)
     print >> sys.stderr, "CMD:", cmd
     subprocess.check_call(cmd, shell=True) 
@@ -208,6 +209,13 @@ def run_filtering_by_count(input_prefix, output_prefix, min_count):
     cmd = "filter_by_count.py {i} {o} --min_count {c}".format(i=input_prefix,
                                                               o=output_prefix,
                                                               c=min_count)
+    print >> sys.stderr, "CMD:", cmd
+    subprocess.check_call(cmd, shell=True)
+
+def run_filtering_away_subsets(input_prefix, output_prefix, fuzzy_junction):
+    cmd = "filter_away_subset_in_no5merge.py {i} {o} --fuzzy_junction {j}".format(i=input_prefix,
+                                                                                  o=output_prefix,
+                                                                                  j=fuzzy_junction)
     print >> sys.stderr, "CMD:", cmd
     subprocess.check_call(cmd, shell=True)
 
@@ -358,11 +366,16 @@ def tofu_wrap_main():
     with open(os.path.join(args.root_dir, 'combined', 'combined.hq_lq_pre_dict.pickle'), 'w') as f:
         dump({'HQ': hq_pre_dict, 'LQ': lq_pre_dict}, f)
     # (5) collapse quivered HQ results
-    collapse_prefix_hq = run_collapse_sam(hq_filename, args.gmap_db, args.gmap_name, cpus=args.blasr_nproc, max_fuzzy_junction=args.max_fuzzy_junction)
+    collapse_prefix_hq = run_collapse_sam(hq_filename, args.gmap_db, args.gmap_name, cpus=args.blasr_nproc, max_fuzzy_junction=args.max_fuzzy_junction, dun_merge_5_shorter=True)
     # (6) make abundance 
     get_abundance(collapse_prefix_hq, hq_pre_dict, collapse_prefix_hq)
-    # (7) run filtering
-    run_filtering_by_count(collapse_prefix_hq, collapse_prefix_hq+'.min_fl_2', min_count=2)
+    # (7) run filtering & removing subsets in no5merge
+    if args.targeted_isoseq:
+        run_filtering_by_count(collapse_prefix_hq, collapse_prefix_hq+'.min_fl_5', min_count=5)
+        run_filtering_away_subsets(collapse_prefix_hq+'.min_fl_5', collapse_prefix_hq+'.min_fl_5.filtered', args.max_fuzzy_junction)
+    else:
+        run_filtering_by_count(collapse_prefix_hq, collapse_prefix_hq+'.min_fl_2', min_count=2)
+        run_filtering_away_subsets(collapse_prefix_hq+'.min_fl_2', collapse_prefix_hq+'.min_fl_2.filtered', args.max_fuzzy_junction)
     # Now do it for LQ (turned OFF for now)
     #collapse_prefix_lq = run_collapse_sam(lq_filename, args.gmap_db, args.gmap_name, cpus=args.blasr_nproc)
     #get_abundance(collapse_prefix_lq, lq_pre_dict, collapse_prefix_lq)

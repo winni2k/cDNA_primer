@@ -151,6 +151,8 @@ class IceIterative(IceFiles):
         # automatically detect scores (Liz)
         # this sets ice_opts.maxScore and ice_opts.minLength and sensitive mode
         self.daligner_sensitive_mode = False
+        self._ignore5 = 200
+        self._ignore3 = 50
         self.auto_detect_length_to_set_scores()
 
         self.unrun_cids = []
@@ -416,7 +418,7 @@ class IceIterative(IceFiles):
         Automatically detect the size range
         to adjust for BLASR maxScore (if used) and daligner minLength / sensitivity
         """
-        flag, _low, _high = get_daligner_sensitivity_setting(self.all_fasta_filename)
+        flag, _low, _high, _ignore5, _ignore3, _ece_min_len = get_daligner_sensitivity_setting(self.all_fasta_filename)
 
         if _low <= 1000:
             self.ice_opts.cDNA_size = "under1k"
@@ -432,13 +434,19 @@ class IceIterative(IceFiles):
         self.maxScore = self.ice_opts.maxScore
         self.minLength = self.ice_opts.minLength
 
-        msg = "Autodetection of min fasta length: set to {0} (maxScore: {1}, minLength: {2})".format(\
-            self.ice_opts.cDNA_size, self.maxScore, self.minLength)
-        self.add_log(msg)
 
         if flag:
             self.daligner_sensitive_mode = True
             self.add_log("Setting daligner to sensitive mode.")
+
+        # set _ignore5, _ignore3 which is the max_missed_start & max_missed_end for daligner_against_ref & blasr_against_ref
+        self._ignore5 = _ignore5
+        self._ignore3 = _ignore3
+        self.ece_min_len = _ece_min_len
+
+        msg = "Autodetection of min fasta length: set to {0} (maxScore: {1}, minLength: {2}, ignore5: {3}, ignore3: {4}, ece_min_len: {5}, ece_penalty: {6})".format(\
+            self.ice_opts.cDNA_size, self.maxScore, self.minLength, self._ignore5, self._ignore3, self.ece_min_len, self.ece_penalty)
+        self.add_log(msg)
 
     def make_new_cluster(self):
         """Add a new cluster to self.uc."""
@@ -964,7 +972,8 @@ class IceIterative(IceFiles):
                       qvmean_get_func=self.probQV.get_mean,
                       qv_prob_threshold=self.qv_prob_threshold,
                       ece_penalty=self.ece_penalty, ece_min_len=self.ece_min_len,
-                      same_strand_only=True, no_qv_or_aln_checking=False):
+                      same_strand_only=True, no_qv_or_aln_checking=False,
+                      max_missed_start=self._ignore5, max_missed_end=self._ignore3):
                 if hit.qID not in self.d:
                     self.d[hit.qID] = {}
                 if hit.fakecigar is not None:
@@ -988,7 +997,9 @@ class IceIterative(IceFiles):
                 qvmean_get_func=self.probQV.get_mean,
                 qv_prob_threshold=self.qv_prob_threshold,
                 ece_penalty=self.ece_penalty,
-                ece_min_len=self.ece_min_len):
+                ece_min_len=self.ece_min_len,
+                max_missed_start=self._ignore5,
+                max_missed_end=self._ignore3):
 
             if hit.qID not in self.d:
                 self.d[hit.qID] = {}
@@ -1422,7 +1433,8 @@ class IceIterative(IceFiles):
                 for r in LAshowAlignReader(las_out_filename):
                     r.qID = dazz_obj[r.qID]
                     r.sID = dazz_obj[r.sID]
-                    if possible_merge(r=r, ece_penalty=self.ece_penalty, ece_min_len=self.ece_min_len):
+                    if possible_merge(r=r, ece_penalty=self.ece_penalty, ece_min_len=self.ece_min_len, \
+                                      max_missed_start=self._ignore5, max_missed_end=self._ignore3):
                         yield r
 
             for file in las_filenames: os.remove(file)
@@ -1442,7 +1454,9 @@ class IceIterative(IceFiles):
 
             for r in BLASRM5Reader(out):
                 if possible_merge(r=r, ece_penalty=self.ece_penalty,
-                                  ece_min_len=self.ece_min_len):
+                                  ece_min_len=self.ece_min_len,
+                                  max_missed_start=self._ignore5,
+                                  max_missed_end=self._ignore3):
                     yield r
 
     def do_icec_merge_nogcon(self, r):

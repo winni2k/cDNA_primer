@@ -86,7 +86,7 @@ def build_uc_from_partial_daligner(input_fastq, ref_fasta, out_pickle,
     out_pickle = realpath(out_pickle)
     output_dir = os.path.dirname(out_pickle)
 
-    daligner_sensitive_mode, _low, _high = get_daligner_sensitivity_setting(ref_fasta, is_fasta=True)
+    daligner_sensitive_mode, _low, _high, _ignore5, _ignore3, _ece_min_len = get_daligner_sensitivity_setting(ref_fasta, is_fasta=True)
 
     # DB should always be already converted
     ref_obj = DazzIDHandler(ref_fasta, True)
@@ -96,7 +96,7 @@ def build_uc_from_partial_daligner(input_fastq, ref_fasta, out_pickle,
     runner = DalignerRunner(input_fasta, ref_fasta, is_FL=False, same_strand_only=False, \
                             query_converted=True, db_converted=True, query_made=False, \
                             db_made=True, use_sge=False, cpus=cpus, sge_opts=None)
-    las_filenames, las_out_filenames = runner.runHPC(min_match_len=300, output_dir=output_dir, sensitive_mode=daligner_sensitive_mode)
+    las_filenames, las_out_filenames = runner.runHPC(min_match_len=_low, output_dir=output_dir, sensitive_mode=daligner_sensitive_mode)
 
     if no_qv_or_aln_checking:
         # not using QVs or alignment checking!
@@ -139,9 +139,11 @@ def build_uc_from_partial_daligner(input_fastq, ref_fasta, out_pickle,
                                  qver_get_func=probqv.get_smoothed,
                                  qvmean_get_func=probqv.get_mean,
                                  ece_penalty=1,
-                                 ece_min_len=20,
+                                 ece_min_len=_ece_min_len,
                                  same_strand_only=False,
-                                 no_qv_or_aln_checking=no_qv_or_aln_checking)
+                                 no_qv_or_aln_checking=no_qv_or_aln_checking,
+                                 max_missed_start=_ignore5,
+                                 max_missed_end=_ignore3)
         for h in hitItems:
             if h.ece_arr is not None:
                 if h.cID not in partial_uc:
@@ -237,8 +239,10 @@ def build_uc_from_partial(input_fasta, ref_fasta, out_pickle,
                                  qvmean_get_func=probqv.get_mean,
                                  qver_get_func=probqv.get_smoothed,
                                  ece_penalty=1,
-                                 ece_min_len=10,
-                                 same_strand_only=False)
+                                 ece_min_len=20,
+                                 same_strand_only=False,
+                                 max_missed_start=200,
+                                 max_missed_end=50)
 
     partial_uc = {}  # Maps each isoform (cluster) id to a list of reads
     # which can map to the isoform
