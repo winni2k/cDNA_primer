@@ -19,7 +19,7 @@ import time
 from pbtools.pbtranscript.PBTranscriptOptions import \
     add_sge_arguments, add_fofn_arguments
 from pbtools.pbtranscript.Utils import realpath, mkdir, real_upath, ln
-from pbtools.pbtranscript.ice.IceFiles import IceFiles
+from pbtools.pbtranscript.ice.IceFiles import IceFiles, wait_for_sge_jobs
 from pbtools.pbtranscript.ice.IceUtils import combine_nfl_pickles
 from pbtools.pbtranscript.ice.IceUtils import ice_fq2fa
 
@@ -151,6 +151,8 @@ class IceAllPartials(IceFiles):
         self.add_log("Mapping non-full-length reads to consensus isoforms.")
         self.add_log("Creating pickles...", level=logging.INFO)
 
+        job_list = ''
+        job_cmd = {} # jid --> actual command to run
         # using --blasr_nproc=4 because DALIGNER uses only 4 cores
         for idx, fq in enumerate(self.fastq_filenames):
             # for each splitted non-full-length reads fasta file, build #
@@ -183,7 +185,7 @@ class IceAllPartials(IceFiles):
             qsub_cmd = "qsub"
             if self.sge_opts.sge_queue is not None:
                 qsub_cmd += " -q " + self.sge_opts.sge_queue
-            qsub_cmd += " -pe {env} {n} ".format(env=self.sge_opts.sge_env_name, n=4) + \
+            qsub_cmd += " -pe {env} {n} ".format(env=self.sge_opts.sge_env_name, n=8) + \
                        "-cwd -S /bin/bash -V " + \
                        "-e {elog} ".format(elog=real_upath(elog)) + \
                        "-o {olog} ".format(olog=real_upath(olog)) + \
@@ -193,27 +195,57 @@ class IceAllPartials(IceFiles):
             self.add_log("Creating a pickle for {f}".format(f=fq))
 
             if self.sge_opts.use_sge is True:
-                self.qsub_cmd_and_log(qsub_cmd)
+                qsub_jid = self.qsub_cmd_and_log(qsub_cmd)
+                job_list += qsub_jid + ','
+                self.add_log("Adding to job_cmd: {0} -> {1}".format(qsub_jid, cmd))
+                job_cmd[int(qsub_jid)] = cmd
             else:
                 cmd += " 1>{olog} 2>{elog}".format(olog=real_upath(olog),
                                                    elog=real_upath(elog))
                 self.run_cmd_and_log(cmd=cmd, olog=olog, elog=elog)
 
-    def waitForPickles(self, pickle_filenames, done_filenames):
+        return job_list[:-1], job_cmd
+
+
+    def waitForPickles(self, pickle_filenames, done_filenames, job_list, job_cmd):
         """Wait for *.pickle and *.pickle.DONE to be created."""
         self.add_log("Waiting for pickles {ps} to be created.".
                      format(ps=", ".join(pickle_filenames)),
                      level=logging.INFO)
-        stop = False
-        sleep_time = 10
-        while stop is not True:
-            stop = all(op.exists(p) for p in pickle_filenames) and \
-                all(op.exists(d) for d in done_filenames)
-            sleep_time = min(60, sleep_time + 10) # wait in increments of 10 sec, up to 1 min
-            time.sleep(sleep_time)
-            self.add_log("Waiting for pickles to be created: {ps}".
-                         format(ps=", ".join([p for p in pickle_filenames
-                                              if op.exists(p)])))
+
+        donesh = op.join(self.script_dir, "ice_all_partials_done.sh")
+        with open(donesh, 'w') as f:
+            f.write("touch " + op.join(self.script_dir, 'IceAllPartial.ALOHA') + '\n')
+
+        if self.sge_opts.use_sge is True:
+            cmd = "qsub"
+            if self.sge_opts.sge_queue is not None:
+                cmd += " -q " + self.sge_opts.sge_queue
+            cmd += " -sync y -pe {env} 1 -S /bin/bash -V -cwd ".format(env=self.sge_opts.sge_env_name) + \
+                    "-e /dev/null " + \
+                     "-o /dev/null " + \
+                    "-hold_jid {jl} ".format(jl=job_list) + \
+                    "-N iceallpartial_done_{r} ".format(r=self.sge_opts.unique_id) + \
+                    "{donesh}".format(donesh=real_upath(donesh))
+            flag, failed_jids = wait_for_sge_jobs(cmd, job_list.split(','), timeout=3600)
+            if flag == 'TIMEOUT':
+                # find the failed jobs and run them locally!
+                for jid in failed_jids:
+                    jid = int(jid)
+                    self.add_log("job {0} failed. running locally CMD: {1}.".format(jid, job_cmd[jid]))
+                    self.run_cmd_and_log(cmd=job_cmd[jid], olog="/dev/null", elog="/dev/null")
+
+# --------- old style for just waiting --------------
+#        stop = False
+#        sleep_time = 10
+#        while stop is not True:
+#            stop = all(op.exists(p) for p in pickle_filenames) and \
+#                all(op.exists(d) for d in done_filenames)
+#            sleep_time = min(60, sleep_time + 10) # wait in increments of 10 sec, up to 1 min
+#            time.sleep(sleep_time)
+#            self.add_log("Waiting for pickles to be created: {ps}".
+#                         format(ps=", ".join([p for p in pickle_filenames
+#                                              if op.exists(p)])))
 
     def combinePickles(self, pickle_filenames, out_pickle):
         """Combine all *.pickle files to one and dump to self.out_pickle."""
@@ -222,10 +254,11 @@ class IceAllPartials(IceFiles):
     def run(self):
         """Assigning nfl reads to consensus isoforms and merge."""
         # Call ice_partial.py to create a pickle for each splitted nfl fasta
-        self.createPickles()
+        job_list, job_cmd = self.createPickles()
         # Wait for pickles to be created, if SGE is used.
         self.waitForPickles(pickle_filenames=self.pickle_filenames,
-                            done_filenames=self.done_filenames)
+                            done_filenames=self.done_filenames,
+                            job_list=job_list, job_cmd=job_cmd)
         # Combine all pickles to a big pickle file: nfl_all_pickle_fn.
         self.combinePickles(pickle_filenames=self.pickle_filenames,
                             out_pickle=self.nfl_all_pickle_fn)

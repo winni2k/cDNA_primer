@@ -647,7 +647,7 @@ class IceIterative(IceFiles):
                       "{donesh}".format(donesh=real_upath(self.gconDoneJobFN(
                                         self.iterNum)))
                 # ------ NEW VERSION using threading and timeout
-                flag = wait_for_sge_jobs(cmd, job_list[:-1].split(','), timeout=600)
+                flag, duncare = wait_for_sge_jobs(cmd, job_list[:-1].split(','), timeout=600)
                 if flag == 'TIMEOUT':
                     self.add_log("DEBUG: qsub sync timed out after 600 sec. Will have to resubmit.")
                 # ------ OLD VERSION using sync
@@ -1394,7 +1394,11 @@ class IceIterative(IceFiles):
             self.add_log("Writing consensus file: " + consensus_filename)
             self.write_consensus(consensus_filename, sa_filename=consensus_filename+'.sa' if use_blasr else None)
 
-            iters = self.find_mergeable_consensus(consensus_filename, use_blasr=use_blasr)
+            try:
+                iters = self.find_mergeable_consensus(consensus_filename, use_blasr=use_blasr)
+            except:
+                self.add_log("ERROR2: Daligner failed. Switching to blasr. Report bug.")
+                iters = self.find_mergeable_consensus(consensus_filename, use_blasr=True)
 
             self.old_rec = {}
             self.new_rec = {}
@@ -1427,6 +1431,7 @@ class IceIterative(IceFiles):
             runner = DalignerRunner(u_fasta_filename, u_fasta_filename, is_FL=True, same_strand_only=True, \
                                 query_converted=True, db_converted=True, query_made=True, \
                                 db_made=True, use_sge=False, sge_opts=None, cpus=4)
+
             las_filenames, las_out_filenames = runner.runHPC(min_match_len=self.minLength, output_dir=output_dir, sensitive_mode=self.daligner_sensitive_mode)
 
             for las_out_filename in las_out_filenames:

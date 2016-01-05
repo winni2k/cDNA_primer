@@ -327,21 +327,26 @@ class IcePartialOne(object):
         """Run"""
         logging.info("Building uc from non-full-length reads using DALIGNER.")
 
-        build_uc_from_partial_daligner(input_fastq=self.input_fastq,
+        try:
+            build_uc_from_partial_daligner(input_fastq=self.input_fastq,
                                        ref_fasta=self.ref_fasta,
                                        out_pickle=self.out_pickle,
                                        ccs_fofn=self.ccs_fofn,
                                        use_finer_qv=self.use_finer_qv,
                                        cpus=self.blasr_nproc,
                                        no_qv_or_aln_checking=True)
-        # replaced by dagliner above
-        #build_uc_from_partial(input_fasta=self.input_fasta,
-        #                      ref_fasta=self.ref_fasta,
-        #                      out_pickle=self.out_pickle,
-        #                      sa_file=self.sa_file,
-        #                      ccs_fofn=self.ccs_fofn,
-        #                      blasr_nproc=self.blasr_nproc,
-        #                      use_finer_qv=self.use_finer_qv)
+        except:
+            input_fastq = realpath(self.input_fastq)
+            input_fasta = input_fastq[:input_fastq.rfind('.')] + '.fasta'
+            ice_fq2fa(input_fastq, input_fasta)
+            # replaced by dagliner above
+            build_uc_from_partial(input_fasta=input_fasta,
+                                  ref_fasta=self.ref_fasta,
+                                  out_pickle=self.out_pickle,
+                                  sa_file=self.sa_file,
+                                  ccs_fofn=self.ccs_fofn,
+                                  blasr_nproc=self.blasr_nproc,
+                                  use_finer_qv=self.use_finer_qv)
 
 
 def add_ice_partial_one_arguments(parser):

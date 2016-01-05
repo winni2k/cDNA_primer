@@ -217,6 +217,13 @@ class IceQuiverPostprocess(IceFiles):
         (3) if not all jobs are done, just quit
         fq_filenames contains all the finished fastq files.
         """
+        def quiver_fastq_is_sane(fq_filename):
+            try:
+                for r in FastqReader(fq_filename): pass
+                return True
+            except ValueError:
+                return False
+
         self.add_log("Checking if quiver jobs are completed.")
         done_flag = True
         bad_sh = []
@@ -251,7 +258,7 @@ class IceQuiverPostprocess(IceFiles):
                                   op.basename(sh_name).replace('.sh', '.quivered.fq'))
 
             if not nfs_exists(fq_filename) or \
-                    os.stat(fq_filename).st_size == 0:
+                    os.stat(fq_filename).st_size == 0 or not quiver_fastq_is_sane(fq_filename):
                 if job_id in running_jids:  # still running, pass
                     done_flag = False
                 else:
@@ -261,6 +268,7 @@ class IceQuiverPostprocess(IceFiles):
             else:
                 self.add_log("job {0} is done".format(job_id))
                 self.fq_filenames.append(fq_filename)
+
 
         if not done_flag:
             if len(bad_sh) == 0:

@@ -133,20 +133,20 @@ class IceFiles(object):
         """Return $root_dir/log/submitted_quiver_jobs.txt"""
         return op.join(self.log_dir, 'submitted_quiver_jobs.txt')
 
-    def nfl_fa_i(self, i):
+    def nfl_fq_i(self, i):
         """Return the i-th splitted chunk of nfl reads.
-           $root_dir/output/map_noFL/input.split_{0:03d}.fa
+           $root_dir/output/map_noFL/input.split_{0:03d}.fastq
 
            NOTE: make sure this agrees with io.FastaSplitter._out_fn()
         """
-        fa_name = "input.split_{0:03d}.fasta".format(i)
+        fa_name = "input.split_{0:03d}.fastq".format(i)
         return op.join(self.nfl_dir, fa_name)
 
     def nfl_pickle_i(self, i):
         """Return the picke file of the i-th chunk of nfl reads.
            $root_dir/output/map_noFL/input.split_{0:03d}.fa.partial_uc.pickle
         """
-        return self.nfl_fa_i(i) + ".partial_uc.pickle"
+        return self.nfl_fq_i(i) + ".partial_uc.pickle"
 
     def nfl_done_i(self, i):
         """Return the done file of the i-th chunk of nfl reads.
@@ -349,6 +349,8 @@ def wait_for_sge_jobs(cmd, jids, timeout):
             job_id = x.split()[0]
             yield job_id
 
+    failed_jids = set()
+
     p = Process(target=wait_for_sge_jobs_worker, args=(cmd,))
     p.start()
     p.join(timeout)
@@ -357,10 +359,11 @@ def wait_for_sge_jobs(cmd, jids, timeout):
         while len(active_jids) > 0:
             for jid in active_jids:
                 kill_cmd = "qdel " + str(jid)
+                failed_jids.add(jid)
                 backticks(kill_cmd) # don't care whether it worked
             time.sleep(3) # wait 3 sec for qdel to take effect....
             active_jids = [x for x in get_active_jids()] # make sure qdel really worked
-        return "TIMEOUT"
-    return "SUCCESS"
+        return "TIMEOUT", failed_jids
+    return "SUCCESS", None
 
 
