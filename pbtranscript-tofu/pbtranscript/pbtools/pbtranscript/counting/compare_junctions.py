@@ -2,7 +2,7 @@
 def overlaps(s1, s2):
     return max(0, min(s1.end, s2.end) - max(s1.start, s2.start))
 
-def compare_junctions(r1, r2, internal_fuzzy_max_dist=0):
+def compare_junctions(r1, r2, internal_fuzzy_max_dist=0, single_exon_overlap_min=0.8):
     """
     r1, r2 should both be BioReaders.GMAPSAMRecord
     
@@ -15,6 +15,15 @@ def compare_junctions(r1, r2, internal_fuzzy_max_dist=0):
     <internal_fuzzy_max_dist> allows for very small amounts of diff between internal exons
     useful for chimeric & slightly bad mappings
     """
+    if len(r1.segments) == 1 and len(r2.segments) == 1: 
+        # both are single-exon, special case! check that they overlap by 80%?
+        len1 = r1.segments[0].end-r1.segments[0].start
+        len2 = r2.segments[0].end-r2.segments[0].start
+        o = overlaps(r1.segments[0], r2.segments[0])
+        if o == 0: return 'nomatch'
+        if o*1./max(len1,len2) >= single_exon_overlap_min: return 'exact'
+        else: return 'partial'
+
     found_overlap = False
     # super/partial --- i > 0, j = 0
     # exact/partial --- i = 0, j = 0
