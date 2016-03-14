@@ -347,7 +347,8 @@ def wait_for_sge_jobs(cmd, jids, timeout):
         stuff = os.popen("qstat").read().strip().split('\n')
         for x in stuff[2:]:
             job_id = x.split()[0]
-            yield job_id
+            if job_id in jids:
+                yield job_id
 
     failed_jids = set()
 

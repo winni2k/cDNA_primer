@@ -1,30 +1,30 @@
 #!/usr/bin/env python
 import os, sys
 from cPickle import *
-from pbcore.io.FastaIO import FastaReader
+from pbcore.io.FastqIO import FastqReader, FastqWriter
 import pbtools.pbtranscript.ice.ProbModel as pm
 import pbtools.pbtranscript.ice.IceIterative as ice
 from pbtools.pbtranscript.ice.IceUtils import ice_fa2fq
 
-def ensure_pickle_goodness(pickle_filename, root_dir, fasta_files_to_add=None):
+def ensure_pickle_goodness(pickle_filename, root_dir, fastq_files_to_add=None):
     """
     Old versions of IceIterative.write_pickle is missing some key/values.
     Add if needed.
     Return a good pickle object
     """
     a = load(open(pickle_filename))
-    if a['fasta_filename'] != os.path.abspath(os.path.join(root_dir,'current.fasta')):
-        raise Exception, "The pickle file {0} indicates that current.fasta is not being used. ICE likely did not finish to a point that could be picked up.".format(pickle_filename)
+    if a['fastq_filename'] != os.path.abspath(os.path.join(root_dir,'current.fastq')):
+        raise Exception, "The pickle file {0} indicates that current.fastq is not being used. ICE likely did not finish to a point that could be picked up.".format(pickle_filename)
 
     a['newids'] = check_n_fix_newids(a)
 
-    if fasta_files_to_add is not None:
-        for file in fasta_files_to_add.split(','):
+    if fastq_files_to_add is not None:
+        for file in fastq_files_to_add.split(','):
             if not os.path.exists(file):
-                raise Exception, "{0} is not a valid fasta file to add!".format(file)
-            if file in a['fasta_filenames_to_add']:
+                raise Exception, "{0} is not a valid fastq file to add!".format(file)
+            if file in a['fastq_filenames_to_add']:
                 print >> sys.stderr, "{0} is already in to-add list. Ignore.".format(file)
-            a['fasta_filenames_to_add'].append(file)
+            a['fastq_filenames_to_add'].append(file)
     if 'root_dir' not in a:
         print >> sys.stderr, "Pickle {0} missing some key-values. Fixing it.".format(pickle_filename)
         a['root_dir'] = root_dir
@@ -51,7 +51,7 @@ def check_n_fix_newids(icec_obj):
         print >> sys.stderr, "added {0} seqs to newids".format(len(newids))
     return newids
 
-def make_current_fasta(icec_obj, flnc_filename, root_dir):
+def make_current_fastq(icec_obj, flnc_filename, root_dir):
     """
     current fasta will consists of all ids
 
@@ -59,16 +59,15 @@ def make_current_fasta(icec_obj, flnc_filename, root_dir):
         then newids is empty, in this case we set newids = everything that
         has no affiliation or more than one affiliated cluster in d
     """
-    with open(os.path.join(root_dir, 'current.fasta'), 'w') as f:
-        for r in FastaReader(flnc_filename):
-                f.write(">{0}\n{1}\n".format(r.name, r.sequence))
+    with FastqWriter(os.path.join(root_dir, 'current.fastq')) as f:
+        for r in FastqReader(flnc_filename):
+            f.writeRecord(r)
+
 
 def pickup_icec_job(pickle_filename, ccs_fofn, flnc_filename, fasta_files_to_add, root_dir):
     icec_obj, icec_pickle_filename = ensure_pickle_goodness(pickle_filename, root_dir, fasta_files_to_add)
-    make_current_fasta(icec_obj, flnc_filename, root_dir)
+    make_current_fastq(icec_obj, flnc_filename, root_dir)
     print >> sys.stderr, "Reading QV information...."
-    # first need to convert to fastq
-    ice_fa2fq('current.fasta', ccs_fofn, 'current.fastq')
     probqv = pm.ProbFromFastq(os.path.join(root_dir,'current.fastq'))
     icec = ice.IceIterative.from_pickle(icec_pickle_filename, probqv)
     # first must RE-RUN gcon to get all the proper refs

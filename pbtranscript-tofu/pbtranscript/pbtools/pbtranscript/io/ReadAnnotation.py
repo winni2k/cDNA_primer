@@ -37,7 +37,7 @@ class ReadAnnotation(object):
         self.fiveend = intorNone(fiveend)
         self.polyAend = intorNone(polyAend)
         self.threeend = intorNone(threeend)
-        self.primer = intorNone(primer)
+        self.primer = xorNA(primer)
         self.chimera = intorNone(chimera)
         self.ignore_polyA = ignore_polyA
 
@@ -50,7 +50,7 @@ class ReadAnnotation(object):
             for d in desc.split(';'):
                 attr, val = d.split('=')
                 if hasNonPropertyAttr(ret, attr):
-                    if attr == "strand" or attr == "ID":
+                    if attr == "strand" or attr == "ID" or attr == 'primer':
                         setattr(ret, attr, val if val not in ["None", 'NA']
                                 else None)
                     else:

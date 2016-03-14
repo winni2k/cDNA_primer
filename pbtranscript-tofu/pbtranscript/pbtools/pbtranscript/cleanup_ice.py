@@ -25,6 +25,13 @@ def cleanup_ice(root_dir, delete_tmp_dir=False, delete_quiver_dir=False):
     files = list(set(files))
     del_files(files)
 
+    dirs_in_log = os.path.join(root_dir, 'log') # don't delete the log/*.log files
+    # but delete things like log/0, log/1, log/2....
+    for x in glob.glob(dirs_in_log):
+        d = os.path.join(dirs_in_log, x)
+        if os.path.isdir(d) and not d.endswith('.log'):
+            shutil.rmtree(d)
+
     nfl_pickle = os.path.join(root_dir, 'output', 'map_noFL', 'nfl.all.partial_uc.pickle')
     if not os.path.exists(nfl_pickle):
         raise Exception, "{0} does not exist. Partial probably not finished!".format(nfl_pickle)

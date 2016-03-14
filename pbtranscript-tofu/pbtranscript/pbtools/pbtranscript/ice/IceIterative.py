@@ -320,19 +320,21 @@ class IceIterative(IceFiles):
         a = None
         with open(pickle_filename) as h:
             a = cPickle.load(h)
-        all_fasta_filename = a['all_fasta_filename']
-        # need to make current.fasta!!!
+        all_fasta_filename = a['all_fasta_filename'] # this is actually isoseq_flnc.fastq
+        # need to make current.fastq!!!
         newids = a['newids']
-        with open(a['fasta_filename'], 'w') as f:
+        with FastqWriter(a['fastq_filename']) as f1, FastaWriter(a['fasta_filename']) as f2:
             # for r in SeqIO.parse(open(all_fasta_filename), 'fasta'):
-            for r in FastaReader(all_fasta_filename):
+            for r in FastqReader(all_fasta_filename):
                 rid = r.name.split()[0]
                 if rid in newids:
-                    f.write(">{0}\n{1}\n".format(rid, r.sequence))
+                    f1.writeRecord(r)
+                    f2.writeRecord(r.name, r.sequence)
 
         obj = IceIterative(
             fasta_filename=a['fasta_filename'],
-            fasta_filenames_to_add=a['fasta_filenames_to_add'],
+            fastq_filename=a['fastq_filename'],
+            fastq_filenames_to_add=a['fastq_filenames_to_add'],
             all_fasta_filename=all_fasta_filename,
             ccs_fofn=a['ccs_fofn'],
             root_dir=a['root_dir'],

@@ -232,7 +232,8 @@ class IceAllPartials(IceFiles):
                 # find the failed jobs and run them locally!
                 for jid in failed_jids:
                     jid = int(jid)
-                    self.add_log("job {0} failed. running locally CMD: {1}.".format(jid, job_cmd[jid]))
+                    self.add_log("job_cmd looks like: {0}".format(job_cmd))
+                    self.add_log("job {0} failed. running locally CMD".format(jid))
                     self.run_cmd_and_log(cmd=job_cmd[jid], olog="/dev/null", elog="/dev/null")
 
 # --------- old style for just waiting --------------

@@ -49,7 +49,7 @@ def sep_flnc_by_primer(flnc_filename, root_dir, output_filename='isoseq_flnc.fas
 
     for f in handles.itervalues(): f.close()
     primers = list(primers)
-    primers.sort(key=lambda x: int(x))
+    #primers.sort(key=lambda x: int(x))
     names = [handles[x].file.name for x in primers]
     return filter(lambda x: os.stat(x).st_size > 0, names)
 
@@ -246,8 +246,9 @@ def tofu_wrap_main():
     # #################################################################
     # SANITY CHECKS
     if not args.quiver:
-        print >> sys.stderr, "--quiver must be turned on for tofu_wrap. Quit."
-        sys.exit(-1)
+        print >> sys.stderr, "QUIVER is not turned on! Just be aware that the combined/ portion will be empty."
+        #print >> sys.stderr, "--quiver must be turned on for tofu_wrap. Quit."
+        #sys.exit(-1)
     if args.nfl_fa is None:
         print >> sys.stderr, "--nfl_fa must be provided for tofu_wrap. Quit."
         sys.exit(-1)
@@ -309,13 +310,13 @@ def tofu_wrap_main():
                             out_filename=args.fasta_fofn,
                             fasta_out_dir=nfl_dir,
                             cpus=args.blasr_nproc)
-    else:
-        if not os.path.exists(args.fasta_fofn):
-            raise Exception, "fasta_fofn {0} does not exist!".format(args.fasta_fofn)
-        for line in open(args.fasta_fofn):
-            file = line.strip()
-            if len(file) > 0 and not os.path.exists(file):
-                raise Exception, "File {0} does not exists in {1}".format(file, args.fasta_fofn)
+#    else: # COMMENT OUT this now rthat we allow quiver = False
+#        if not os.path.exists(args.fasta_fofn):
+#            raise Exception, "fasta_fofn {0} does not exist!".format(args.fasta_fofn)
+#        for line in open(args.fasta_fofn):
+#            file = line.strip()
+#            if len(file) > 0 and not os.path.exists(file):
+#                raise Exception, "File {0} does not exists in {1}".format(file, args.fasta_fofn)
 
     # (3) run ICE/Quiver (the whole thing), providing the fasta_fofn
     split_dirs = []
@@ -325,9 +326,14 @@ def tofu_wrap_main():
         cur_out_cons = os.path.join(cur_dir, args.consensusFa)
         
         hq_quiver = os.path.join(cur_dir, quiver_hq_filename)
-        if os.path.exists(hq_quiver):
+        if args.quiver and os.path.exists(hq_quiver):
             print >> sys.stderr, "{0} already exists. SKIP!".format(hq_quiver)
             continue
+        final_cons = os.path.join(cur_dir, 'output', 'final.consensus.fasta')
+        if not args.quiver and os.path.exists(final_cons):
+            print >> sys.stderr, "{0} already exists. SKIP!".format(final_cons)
+            continue
+
         print >> sys.stderr, "running ICE/Quiver on", cur_dir
         start_t = time.time()
 
