@@ -179,7 +179,7 @@ class IceAllPartials(IceFiles):
                 unique_id=self.sge_opts.unique_id,
                 name=op.basename(fa))
 
-            qsub_cmd = "qsub"
+            qsub_cmd = "runjmsenv qsub"
             if self.sge_opts.sge_queue is not None:
                 qsub_cmd += " -q " + self.sge_opts.sge_queue
             qsub_cmd += " -pe {env} {n} ".format(env=self.sge_opts.sge_env_name, n=4) + \

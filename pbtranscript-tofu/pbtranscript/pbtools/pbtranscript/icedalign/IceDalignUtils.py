@@ -265,7 +265,7 @@ def qsub_job_runner(cmds_list, sh_file_format, done_script, sge_opts, qsub_retry
         f.close()
 
         # hard-coded to 4 CPUS because hard-coded in daligner!
-        qsub_cmd = "qsub"
+        qsub_cmd = "runjmsenv qsub"
         if sge_opts.queue_name is not None:
             qsub_cmd += " -q " + sge_opts.queue_name
         qsub_cmd += " -cwd -V -S /bin/bash -pe {env} 4 -e {out}.elog -o {out}.olog {out}".format(\

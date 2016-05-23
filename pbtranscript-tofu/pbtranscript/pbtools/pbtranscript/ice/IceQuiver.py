@@ -333,7 +333,7 @@ class IceQuiver(IceFiles):
                         unique_id=self.sge_opts.unique_id,
                         name=op.basename(job))
 
-                    qsub_cmd = "qsub"
+                    qsub_cmd = "runjmsenv qsub"
                     if self.sge_opts.sge_queue is not None:
                         qsub_cmd += " -q " + self.sge_opts.sge_queue
                     qsub_cmd += " -pe {env} {n} ".format(n=sge_opts.quiver_nproc, env=sge_opts.sge_env_name) + \
