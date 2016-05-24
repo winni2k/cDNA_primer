@@ -356,7 +356,7 @@ def wait_for_sge_jobs(cmd, jids, timeout):
         active_jids = [x for x in get_active_jids()]
         while len(active_jids) > 0:
             for jid in active_jids:
-                kill_cmd = "qdel " + str(jid)
+                kill_cmd = "runjmsenv qdel " + str(jid)
                 backticks(kill_cmd) # don't care whether it worked
             time.sleep(3) # wait 3 sec for qdel to take effect....
             active_jids = [x for x in get_active_jids()] # make sure qdel really worked
