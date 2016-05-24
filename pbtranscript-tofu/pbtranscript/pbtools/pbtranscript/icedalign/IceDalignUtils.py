@@ -289,13 +289,13 @@ def qsub_job_runner(cmds_list, sh_file_format, done_script, sge_opts, qsub_retry
 
     # use a qsub job to wait for the commands to finish
     # ToDo: this is NOT bullet proof! watch for cases where the job may have died or been killed or hung
-    wait_cmd = "qsub "
+    wait_cmd = "runjmsenv qsub"
     if sge_opts.queue_name is not None:
         wait_cmd += " -q " + sge_opts.queue_name
     wait_cmd += " -sync y -pe {2} 1 -cwd -S /bin/bash -V -e /dev/null -o /dev/null -hold_jid {0} {1}".format(",".join(jids), done_script, sge_opts.sge_env_name)
     _out, _code, _msg = backticks(wait_cmd)
     if _code != 0: # failed, just wait manually then
-        active_jids = [x.split()[0] for x in os.popen("qstat").read().strip().split('\n')[2:]]
+        active_jids = [x.split()[0] for x in os.popen("runjmsenv qstat").read().strip().split('\n')[2:]]
         while True:
             if any(x in jids for x in active_jids): # some jobs are still running
                 time.sleep(10)

@@ -236,7 +236,7 @@ class IceQuiverPostprocess(IceFiles):
                     submitted[a] = b
 
         if sge_used is True and self.use_sge is True:
-            stuff = os.popen("qstat").read().strip().split('\n')
+            stuff = os.popen("runjmsenv qstat").read().strip().split('\n')
             # first two lines are header
             running_jids = []
             for x in stuff[2:]:

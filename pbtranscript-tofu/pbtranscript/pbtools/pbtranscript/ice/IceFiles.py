@@ -344,7 +344,7 @@ def wait_for_sge_jobs(cmd, jids, timeout):
     and let the main function that calls it handle what to do
     """
     def get_active_jids():
-        stuff = os.popen("qstat").read().strip().split('\n')
+        stuff = os.popen("runjmsenv qstat").read().strip().split('\n')
         for x in stuff[2:]:
             job_id = x.split()[0]
             yield job_id
