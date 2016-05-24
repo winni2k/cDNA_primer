@@ -96,7 +96,7 @@ def sanity_check_sge(sge_opts, scriptDir, testDirName="gcon_test_dir"):
                 " c1\n")
 
     assert(op.exists(testSh))
-    cmd = "runjmsenv qsub"
+    cmd = "env -u PERL5LIB -u PERLLIB qsub"
     if sge_opts.sge_queue is not None:
         cmd += " -q " + sge_opts.sge_queue
     cmd += " -sync y -pe {env} 1 -cwd -S /bin/bash -V -e /dev/null -o /dev/null {t}".\

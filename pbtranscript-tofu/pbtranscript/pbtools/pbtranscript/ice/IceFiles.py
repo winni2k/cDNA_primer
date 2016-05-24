@@ -344,7 +344,7 @@ def wait_for_sge_jobs(cmd, jids, timeout):
     and let the main function that calls it handle what to do
     """
     def get_active_jids():
-        stuff = os.popen("runjmsenv qstat").read().strip().split('\n')
+        stuff = os.popen("env -u PERL5LIB -u PERLLIB qstat").read().strip().split('\n')
         for x in stuff[2:]:
             job_id = x.split()[0]
             yield job_id
@@ -356,7 +356,7 @@ def wait_for_sge_jobs(cmd, jids, timeout):
         active_jids = [x for x in get_active_jids()]
         while len(active_jids) > 0:
             for jid in active_jids:
-                kill_cmd = "runjmsenv qdel " + str(jid)
+                kill_cmd = "env -u PERL5LIB -u PERLLIB qdel " + str(jid)
                 backticks(kill_cmd) # don't care whether it worked
             time.sleep(3) # wait 3 sec for qdel to take effect....
             active_jids = [x for x in get_active_jids()] # make sure qdel really worked

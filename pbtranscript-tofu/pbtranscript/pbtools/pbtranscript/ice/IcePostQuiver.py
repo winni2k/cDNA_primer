@@ -89,7 +89,7 @@ class IcePostQuiver(IceFiles):
                 else:
                     submitted[a] = b
 
-        stuff = os.popen("runjmsenv qstat").read().strip().split('\n')
+        stuff = os.popen("env -u PERL5LIB -u PERLLIB qstat").read().strip().split('\n')
         # first two lines are header
         running_jids = []
         for x in stuff[2:]:
