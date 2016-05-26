@@ -597,7 +597,7 @@ class IceIterative(IceFiles):
                     elog = self.elogFN(self.iterNum, f.name)
                     olog = self.ologFN(self.iterNum, f.name)
 
-                    cmd = "env -u PERL5LIB -u PERLLIB qsub"
+                    cmd = "env -u PERL5LIB -u PERLLIB SGE_ROOT=/opt/uge PATH=$PATH:/opt/uge/bin/lx-amd64 SGE_CELL=default SGE_CLUSTER_NAME=p6444 qsub"
                     if self.sge_opts.sge_queue is not None:
                         cmd += " -q " + self.sge_opts.sge_queue
                     cmd += " -pe {env} {nproc} ".\
@@ -620,7 +620,7 @@ class IceIterative(IceFiles):
                 olog = self.ologFN(self.iterNum,
                                    self.gconDoneJobFN(self.iterNum))
 
-                cmd = "env -u PERL5LIB -u PERLLIB qsub"
+                cmd = "env -u PERL5LIB -u PERLLIB SGE_ROOT=/opt/uge PATH=$PATH:/opt/uge/bin/lx-amd64 SGE_CELL=default SGE_CLUSTER_NAME=p6444 qsub"
                 if self.sge_opts.sge_queue is not None:
                     cmd += " -q " + self.sge_opts.sge_queue
                 cmd += " -sync y -pe {env} 1 -S /bin/bash -V -cwd ".format(env=self.sge_opts.sge_env_name) + \

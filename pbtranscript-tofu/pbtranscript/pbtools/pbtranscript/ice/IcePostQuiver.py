@@ -89,7 +89,7 @@ class IcePostQuiver(IceFiles):
                 else:
                     submitted[a] = b
 
-        stuff = os.popen("env -u PERL5LIB -u PERLLIB qstat").read().strip().split('\n')
+        stuff = os.popen("env -u PERL5LIB -u PERLLIB SGE_ROOT=/opt/uge PATH=$PATH:/opt/uge/bin/lx-amd64 SGE_CELL=default SGE_CLUSTER_NAME=p6444 qstat").read().strip().split('\n')
         # first two lines are header
         running_jids = []
         for x in stuff[2:]:

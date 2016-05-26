@@ -265,7 +265,7 @@ def qsub_job_runner(cmds_list, sh_file_format, done_script, sge_opts, qsub_retry
         f.close()
 
         # hard-coded to 4 CPUS because hard-coded in daligner!
-        qsub_cmd = "env -u PERL5LIB -u PERLLIB qsub"
+        qsub_cmd = "env -u PERL5LIB -u PERLLIB SGE_ROOT=/opt/uge PATH=$PATH:/opt/uge/bin/lx-amd64 SGE_CELL=default SGE_CLUSTER_NAME=p6444 qsub"
         if sge_opts.queue_name is not None:
             qsub_cmd += " -q " + sge_opts.queue_name
         qsub_cmd += " -cwd -V -S /bin/bash -pe {env} 4 -e {out}.elog -o {out}.olog {out}".format(\
@@ -289,13 +289,13 @@ def qsub_job_runner(cmds_list, sh_file_format, done_script, sge_opts, qsub_retry
 
     # use a qsub job to wait for the commands to finish
     # ToDo: this is NOT bullet proof! watch for cases where the job may have died or been killed or hung
-    wait_cmd = "env -u PERL5LIB -u PERLLIB qsub"
+    wait_cmd = "env -u PERL5LIB -u PERLLIB SGE_ROOT=/opt/uge PATH=$PATH:/opt/uge/bin/lx-amd64 SGE_CELL=default SGE_CLUSTER_NAME=p6444 qsub"
     if sge_opts.queue_name is not None:
         wait_cmd += " -q " + sge_opts.queue_name
     wait_cmd += " -sync y -pe {2} 1 -cwd -S /bin/bash -V -e /dev/null -o /dev/null -hold_jid {0} {1}".format(",".join(jids), done_script, sge_opts.sge_env_name)
     _out, _code, _msg = backticks(wait_cmd)
     if _code != 0: # failed, just wait manually then
-        active_jids = [x.split()[0] for x in os.popen("env -u PERL5LIB -u PERLLIB qstat").read().strip().split('\n')[2:]]
+        active_jids = [x.split()[0] for x in os.popen("env -u PERL5LIB -u PERLLIB SGE_ROOT=/opt/uge PATH=$PATH:/opt/uge/bin/lx-amd64 SGE_CELL=default SGE_CLUSTER_NAME=p6444 qstat").read().strip().split('\n')[2:]]
         while True:
             if any(x in jids for x in active_jids): # some jobs are still running
                 time.sleep(10)

@@ -96,7 +96,7 @@ def sanity_check_sge(sge_opts, scriptDir, testDirName="gcon_test_dir"):
                 " c1\n")
 
     assert(op.exists(testSh))
-    cmd = "env -u PERL5LIB -u PERLLIB qsub"
+    cmd = "env -u PERL5LIB -u PERLLIB SGE_ROOT=/opt/uge PATH=$PATH:/opt/uge/bin/lx-amd64 SGE_CELL=default SGE_CLUSTER_NAME=p6444 qsub"
     if sge_opts.sge_queue is not None:
         cmd += " -q " + sge_opts.sge_queue
     cmd += " -sync y -pe {env} 1 -cwd -S /bin/bash -V -e /dev/null -o /dev/null {t}".\

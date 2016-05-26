@@ -179,7 +179,7 @@ class IceAllPartials(IceFiles):
                 unique_id=self.sge_opts.unique_id,
                 name=op.basename(fa))
 
-            qsub_cmd = "env -u PERL5LIB -u PERLLIB qsub"
+            qsub_cmd = "env -u PERL5LIB -u PERLLIB SGE_ROOT=/opt/uge PATH=$PATH:/opt/uge/bin/lx-amd64 SGE_CELL=default SGE_CLUSTER_NAME=p6444 qsub"
             if self.sge_opts.sge_queue is not None:
                 qsub_cmd += " -q " + self.sge_opts.sge_queue
             qsub_cmd += " -pe {env} {n} ".format(env=self.sge_opts.sge_env_name, n=4) + \
