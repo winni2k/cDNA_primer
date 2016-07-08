@@ -154,5 +154,5 @@ def add_ice_quiver_all_arguments(parser):
     parser = add_fofn_arguments(parser, bas_fofn=True, fasta_fofn=True)
     parser = add_cluster_summary_report_arguments(parser)
     parser = add_ice_post_quiver_hq_lq_arguments(parser)
-    parser = add_sge_arguments(parser, quiver_nproc=True, blasr_nproc=True)
+    parser = add_sge_arguments(parser, quiver_nproc=True, blasr_nproc=True, sge_env_name=True, sge_queue=True)
     return parser

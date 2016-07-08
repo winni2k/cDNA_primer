@@ -54,7 +54,8 @@ def filter_by_count(input_prefix, output_prefix, min_count):
     # write output GFF
     f = open(output_prefix + '.gff', 'w')
     for r in GFF.collapseGFFReader(gff_filename):
-        if r.seqid in good: GFF.write_collapseGFF_format(f, r)
+        if r.seqid in good or (r.seqid.startswith('PBfusion.') and r.seqid[:r.seqid.rfind('.')] in good): 
+            GFF.write_collapseGFF_format(f, r)
     f.close()
 
 

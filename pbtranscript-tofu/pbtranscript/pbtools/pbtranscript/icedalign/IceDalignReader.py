@@ -45,9 +45,12 @@ class LAshowAlignReader:
 
         self.f.readline() # blank line
         _qStart, qAln = self.f.readline().strip().split()
+        # DALIGNER is now changed to all 0-based, no longer need to do -1 for _qStart and _sStart
+        #(qStrand == 0 and int(_qStart) == qStart) or (qStrand == 1 and int(_qStart) == qEnd)
         assert (qStrand == 0 and int(_qStart)-1 == qStart) or (qStrand == 1 and int(_qStart)-1 == qLen-qEnd)
         alnStr = self.f.readline().strip()
         _sStart, sAln = self.f.readline().strip().split()[:2]
+        #assert (sStrand == 0 and int(_sStart) == sStart) or (sStrand == 1 and int(_sStart) == sEnd)
         assert (sStrand == 0 and int(_sStart)-1 == sStart) or (sStrand == 1 and int(_sStart)-1 == sLen-sEnd)
         return BLASRRecord(qID, qLen, qStart, qEnd, qStrand, sID, sLen, sStart, sEnd, sStrand, score, None, \
                     qAln=qAln, alnStr=alnStr, sAln=sAln, identity=iden, strand='+' if qStrand==sStrand else '-')

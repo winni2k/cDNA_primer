@@ -169,7 +169,9 @@ class IceQuiverRunner(PBMultiToolRunner):
                                       use_sge=args.use_sge,
                                       max_sge_jobs=args.max_sge_jobs,
                                       blasr_nproc=args.blasr_nproc,
-                                      quiver_nproc=args.quiver_nproc)
+                                      quiver_nproc=args.quiver_nproc,
+                                                  sge_env_name=args.sge_env_name,
+                                                              sge_queue=args.sge_queue)
                 ipq_opts = IceQuiverHQLQOptions(
                     hq_isoforms_fa=args.hq_isoforms_fa,
                     hq_isoforms_fq=args.hq_isoforms_fq,
@@ -188,7 +190,10 @@ class IceQuiverRunner(PBMultiToolRunner):
                                       use_sge=args.use_sge,
                                       max_sge_jobs=args.max_sge_jobs,
                                       blasr_nproc=args.blasr_nproc,
-                                      quiver_nproc=args.quiver_nproc)
+                                      quiver_nproc=args.quiver_nproc, 
+                                      sge_env_name=args.sge_env_name,
+                                                                                                    sge_queue=args.sge_queue
+                                                                                                    )
                 obj = IceQuiverI(root_dir=args.root_dir, i=args.i, N=args.N,
                                  bas_fofn=args.bas_fofn,
                                  fasta_fofn=args.fasta_fofn,

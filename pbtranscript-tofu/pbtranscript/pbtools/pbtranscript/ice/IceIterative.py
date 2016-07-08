@@ -1434,24 +1434,30 @@ class IceIterative(IceFiles):
                                 query_converted=True, db_converted=True, query_made=True, \
                                 db_made=True, use_sge=False, sge_opts=None, cpus=4)
 
-            las_filenames, las_out_filenames = runner.runHPC(min_match_len=self.minLength, output_dir=output_dir, sensitive_mode=self.daligner_sensitive_mode)
+            try:
+                las_filenames, las_out_filenames = runner.runHPC(min_match_len=self.minLength, output_dir=output_dir, sensitive_mode=self.daligner_sensitive_mode)
 
-            for las_out_filename in las_out_filenames:
-                for r in LAshowAlignReader(las_out_filename):
-                    r.qID = dazz_obj[r.qID]
-                    r.sID = dazz_obj[r.sID]
-                    if possible_merge(r=r, ece_penalty=self.ece_penalty, ece_min_len=self.ece_min_len, \
-                                      max_missed_start=self._ignore5, max_missed_end=self._ignore3):
-                        yield r
+                for las_out_filename in las_out_filenames:
+                    for r in LAshowAlignReader(las_out_filename):
+                        r.qID = dazz_obj[r.qID]
+                        r.sID = dazz_obj[r.sID]
+                        if possible_merge(r=r, ece_penalty=self.ece_penalty, ece_min_len=self.ece_min_len, \
+                                          max_missed_start=self._ignore5, max_missed_end=self._ignore3):
+                            yield r
 
-            for file in las_filenames: os.remove(file)
-            for file in las_out_filenames: os.remove(file)
+                for file in las_filenames: os.remove(file)
+                for file in las_out_filenames: os.remove(file)
+            except:
+                self.add_log("ERROR3: Daligner failed. Switching to blasr. Report bug.")
+                for r in self.find_mergeable_consensus(fasta_filename, use_blasr=True):
+                    yield r
         else:
             # ------- OLD VERSION using BLASR
             out = self.selfBlasrFN(fasta_filename)
             if op.exists(out):  # clean out the blasr file from the last run
                 os.remove(out)
-            cmd = "blasr {i} {i} -sa {i}.sa ".format(i=real_upath(fasta_filename)) + \
+
+            cmd = "blasr {i} {i} ".format(i=real_upath(fasta_filename)) + \
                   "-bestn 20 -nCandidates 100 -minPctIdentity 95 -maxLCPLength 15 -m 5 " + \
                   "-maxScore {s} ".format(s=self.maxScore) + \
                   "-nproc {cpu} -out {o}".format(cpu=self.blasr_nproc,

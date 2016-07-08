@@ -57,7 +57,7 @@ def main():
     recs = defaultdict(lambda: [])
     reader = GFF.collapseGFFReader(gff_filename)
     for r in reader:
-        assert r.seqid.startswith('PB.')
+        assert r.seqid.startswith('PB.') 
         recs[int(r.seqid.split('.')[1])].append(r)
 
     good = []
