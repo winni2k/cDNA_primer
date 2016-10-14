@@ -1,22 +1,24 @@
 #!/usr/bin/env python
+import os, sys
 from pbtools.pbtranscript.io import GFF
 from collections import defaultdict
 from pbtools.pbtranscript.counting import compare_junctions
 from pbcore.io.FastqIO import FastqReader, FastqWriter
+from pbcore.io.FastaIO import FastaReader, FastaWriter
 from csv import DictReader, DictWriter
 
 
-def can_merge(m, r1, r2, internal_fuzzy_max_dist):
+def can_merge(m, r1, r2, internal_fuzzy_max_dist, start_site_max=100):
     if m == 'subset':
         r1, r2 = r2, r1 #  rotate so r1 is always the longer one
     if m == 'super' or m == 'subset':
         n2 = len(r2.ref_exons)
         if r1.strand == '+':
             return abs(r1.ref_exons[-1].start - r2.ref_exons[-1].start) <= internal_fuzzy_max_dist and \
-                r1.ref_exons[-n2].start <= r2.ref_exons[0].start < r1.ref_exons[-n2].end
+                r1.ref_exons[-n2].start-start_site_max <= r2.ref_exons[0].start < r1.ref_exons[-n2].end
         else:
             return abs(r1.ref_exons[0].end - r2.ref_exons[0].end) <= internal_fuzzy_max_dist and \
-                    r1.ref_exons[n2-1].start <= r2.ref_exons[-1].end < r1.ref_exons[n2].end
+                    r1.ref_exons[n2-1].start <= r2.ref_exons[-1].end < r1.ref_exons[n2-1].end + start_site_max
 
 def filter_out_subsets(recs, internal_fuzzy_max_dist):
     # recs must be sorted by start becuz that's the order they are written
@@ -24,8 +26,8 @@ def filter_out_subsets(recs, internal_fuzzy_max_dist):
     while i < len(recs)-1:
         j = i + 1
         while j < len(recs):
-            if recs[j].start > recs[i].end: 
-                break
+            #if recs[j].start > recs[i].end: 
+            #    break
             recs[i].segments = recs[i].ref_exons
             recs[j].segments = recs[j].ref_exons
             m = compare_junctions.compare_junctions(recs[i], recs[j], internal_fuzzy_max_dist)
@@ -53,6 +55,7 @@ def main():
     count_filename = args.input_prefix + '.abundance.txt'
     gff_filename = args.input_prefix + '.gff'
     rep_filename = args.input_prefix + '.rep.fq'
+    if not os.path.exists(rep_filename): rep_filename = args.input_prefix + '.rep.fa'
 
     recs = defaultdict(lambda: [])
     reader = GFF.collapseGFFReader(gff_filename)
@@ -89,10 +92,16 @@ def main():
     f.close()
 
     # write output rep.fq
-    f = FastqWriter(args.output_prefix + '.rep.fq')
-    for r in FastqReader(rep_filename):
-        if r.name.split('|')[0] in good:
-           f.writeRecord(r)
+    if rep_filename.endswith('.fq'):
+        f = FastqWriter(args.output_prefix + '.rep.fq')
+        for r in FastqReader(rep_filename):
+            if r.name.split('|')[0] in good:
+                f.writeRecord(r)
+    else:
+        f = FastaWriter(args.output_prefix + '.rep.fa')
+        for r in FastaReader(rep_filename):
+            if r.name.split('|')[0] in good:
+                f.writeRecord(r)
     f.close()
 
     # write output to .abundance.txt

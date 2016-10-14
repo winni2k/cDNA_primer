@@ -45,7 +45,7 @@ def read_config(filename):
     return sample_dirs, sample_names, group_filename, gff_filename, count_filename
 
 
-def chain_samples(dirs, names, group_filename, gff_filename, count_filename, field_to_use='norm_nfl', fuzzy_junction=0):
+def chain_samples(dirs, names, group_filename, gff_filename, count_filename, field_to_use='norm_nfl', fuzzy_junction=0, ignore_strand=False):
     count_info = {} # key: (sample, PB.1.1) --> count
     for name, d in dirs.iteritems():
         f = open(os.path.join(d, count_filename))
@@ -63,7 +63,7 @@ def chain_samples(dirs, names, group_filename, gff_filename, count_filename, fie
     o = sp.MegaPBTree(os.path.join(d, gff_filename), os.path.join(d, group_filename), self_prefix=name, internal_fuzzy_max_dist=fuzzy_junction)
     for name in names[1:]:
         d = dirs[name]
-        o.add_sample(os.path.join(d, gff_filename), os.path.join(d, group_filename), sample_prefix=name, output_prefix='tmp_'+name)
+        o.add_sample(os.path.join(d, gff_filename), os.path.join(d, group_filename), sample_prefix=name, output_prefix='tmp_'+name, ignore_strand=ignore_strand)
         o = sp.MegaPBTree('tmp_'+name+'.gff', 'tmp_'+name+'.group.txt', self_prefix='tmp_'+name, internal_fuzzy_max_dist=fuzzy_junction)
         chain.append(name)
 
@@ -130,8 +130,9 @@ if __name__ == "__main__":
     parser.add_argument("config_file")
     parser.add_argument("field_to_use", choices=['norm_fl', 'norm_nfl', 'norm_nfl_amb', 'count_fl', 'count_nfl', 'count_nfl_amb'], default='norm_nfl', help="Which count field to use for chained sample (default: norm_nfl)")
     parser.add_argument("--fuzzy_junction", default=5, type=int, help="Max allowed distance in junction to be considered identical (default: 5 bp)")
+    parser.add_argument("--ignore_strand", default=False, action="store_true", help="Ignore strand of transcript (default: off)")
 
     args = parser.parse_args()
 
     sample_dirs, sample_names, group_filename, gff_filename, count_filename = read_config(args.config_file)
-    chain_samples(sample_dirs, sample_names, group_filename, gff_filename, count_filename, args.field_to_use, args.fuzzy_junction)
+    chain_samples(sample_dirs, sample_names, group_filename, gff_filename, count_filename, args.field_to_use, args.fuzzy_junction, args.ignore_strand)

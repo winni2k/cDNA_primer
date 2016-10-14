@@ -43,7 +43,7 @@ class MegaPBTree:
                     group_info[pbid] = [group_prefix+'|'+x for x in members.split(',')]
         return group_info
 
-    def match_record_to_tree(self, r):
+    def match_record_to_tree(self, r, ignore_strand=False):
         """
         r --- GMAPRecord
         tree --- dict of chromosome --> strand --> IntervalTree
@@ -58,14 +58,23 @@ class MegaPBTree:
             r2.segments = r2.ref_exons
             if compare_junctions.compare_junctions(r, r2, internal_fuzzy_max_dist=self.internal_fuzzy_max_dist) == 'exact': # is a match!
                 return r2
+
+        # if ended up here, means no match on same strand, try the other strand if ignore_strand==True
+        if ignore_strand:
+            matches = self.tree[r.chr]['+' if r.strand=='-' else '-'].find(r.start, r.end)
+            for r2 in matches:
+                r.segments = r.ref_exons
+                r2.segments = r2.ref_exons
+                if compare_junctions.compare_junctions(r, r2, internal_fuzzy_max_dist=self.internal_fuzzy_max_dist) == 'exact': 
+                    return r2
         return None
 
-    def add_sample(self, gff_filename, group_filename, sample_prefix, output_prefix):
+    def add_sample(self, gff_filename, group_filename, sample_prefix, output_prefix, ignore_strand=False):
         combined = [] # list of (r1 if r2 is None | r2 if r1 is None | longer of r1 or r2 if both not None)
         unmatched_recs = self.record_d.keys()
 
         for r in GFF.collapseGFFReader(gff_filename):
-            match_rec = self.match_record_to_tree(r)
+            match_rec = self.match_record_to_tree(r, ignore_strand)
             if match_rec is not None:  # found a match! put longer of r1/r2 in
                 combined.append((match_rec, r))
                 try:
