@@ -8,7 +8,7 @@ from pbcore.io.FastaIO import FastaReader, FastaWriter
 from csv import DictReader, DictWriter
 
 
-def can_merge(m, r1, r2, internal_fuzzy_max_dist, start_site_max=100):
+def can_merge(m, r1, r2, internal_fuzzy_max_dist, start_site_max=20):
     if m == 'subset':
         r1, r2 = r2, r1 #  rotate so r1 is always the longer one
     if m == 'super' or m == 'subset':
